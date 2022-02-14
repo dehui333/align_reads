@@ -8,6 +8,17 @@
 
 namespace align_reads {
 
+class FeatureGenerator {
+
+private:    
+    std::vector<std::unique_ptr<align_reads::Sequence>> sequences;
+    std::vector<std::unique_ptr<align_reads::Overlap>> overlaps;
+    
+public:
+    
+    FeatureGenerator(const char* sequences_file_path, const char* overlaps_file_path);
+      
+};
 
 
 

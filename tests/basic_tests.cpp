@@ -3,6 +3,7 @@
 #include "align_reads.hpp"
 
 const char* reads_fastq_path = "../test_data/reads.fastq";
+const char* reads_fasta_path = "../test_data/reads.fasta";
 const char* overlap_paf_path = "../test_data/overlap.paf";
 
 // Demonstrate some basic assertions.
@@ -11,6 +12,17 @@ TEST(TrivialTests, BasicAssertions) {
     EXPECT_STRNE("hello", "world");
     // Expect equality.
     EXPECT_EQ(7 * 6, 42);
+}
+
+TEST(BasicTests, Parse_Fasta) {
+    auto p = bioparser::Parser<FastaSequence>::Create<bioparser::FastaParser>(reads_fasta_path);
+    auto s = p->Parse(-1);
+    EXPECT_EQ(2, s.size());
+    uint32_t last = s.size() - 1;
+    EXPECT_EQ(s[0]->name, "read1");
+    EXPECT_EQ(s[0]->seq, "ACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTG");
+    EXPECT_EQ(s[last]->name, "read2");
+    EXPECT_EQ(s[last]->seq, "ACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTG");
 }
 
 TEST(BasicTests, Parse_Fastq) {

@@ -1,7 +1,9 @@
 #include <iostream>
 
+#include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "bioparser/paf_parser.hpp"
+
 
 struct FastqSequence {
     std::string name;
@@ -14,6 +16,17 @@ struct FastqSequence {
       const char* q, std::uint32_t lq
     ) :name(n, ln), seq(s, ls), qual(q, lq) {}
 };
+
+struct FastaSequence {
+    std::string name;
+    std::string seq;
+  
+    FastaSequence(
+      const char* n, std::uint32_t ln,
+      const char* s, std::uint32_t ls
+    ) :name(n, ln), seq(s, ls){}
+};
+
 
 struct Overlap {
     std::string q_name;

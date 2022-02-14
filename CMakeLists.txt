@@ -3,7 +3,7 @@ project (align_reads)
 set(CMAKE_CXX_STANDARD 11)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-add_library(align_reads SHARED src/align_reads.cpp)
+add_library(align_reads SHARED src/feature_generator.cpp)
 
 # bioparser
 if (NOT TARGET bioparser)

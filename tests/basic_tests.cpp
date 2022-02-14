@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
-#include "align_reads.hpp"
+#include "bioparser/fasta_parser.hpp"
+#include "bioparser/fastq_parser.hpp"
+#include "bioparser/paf_parser.hpp"
+#include "types.hpp"
 
 const char* reads_fastq_path = "../test_data/reads.fastq";
 const char* reads_fasta_path = "../test_data/reads.fasta";
@@ -15,7 +18,7 @@ TEST(TrivialTests, BasicAssertions) {
 }
 
 TEST(BasicTests, Parse_Fasta) {
-    auto p = bioparser::Parser<FastaSequence>::Create<bioparser::FastaParser>(reads_fasta_path);
+    auto p = bioparser::Parser<align_reads::Sequence>::Create<bioparser::FastaParser>(reads_fasta_path);
     auto s = p->Parse(-1);
     EXPECT_EQ(2, s.size());
     uint32_t last = s.size() - 1;
@@ -26,7 +29,7 @@ TEST(BasicTests, Parse_Fasta) {
 }
 
 TEST(BasicTests, Parse_Fastq) {
-    auto p = bioparser::Parser<FastqSequence>::Create<bioparser::FastqParser>(reads_fastq_path);
+    auto p = bioparser::Parser<align_reads::QSequence>::Create<bioparser::FastqParser>(reads_fastq_path);
     auto s = p->Parse(-1);
     EXPECT_EQ(3165, s.size());
     uint32_t last = s.size() - 1;
@@ -40,7 +43,7 @@ TEST(BasicTests, Parse_Fastq) {
 }
 
 TEST(BasicTests, Parse_PAF) {
-    auto p = bioparser::Parser<Overlap>::Create<bioparser::PafParser>(overlap_paf_path);
+    auto p = bioparser::Parser<align_reads::Overlap>::Create<bioparser::PafParser>(overlap_paf_path);
     auto o = p->Parse(-1);
     EXPECT_EQ(8413, o.size());
     uint32_t last = o.size() - 1;

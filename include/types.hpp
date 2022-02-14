@@ -1,31 +1,31 @@
-#include <iostream>
+#ifndef ALIGN_READS_TYPES_HPP_
+#define ALIGN_READS_TYPES_HPP_
 
-#include "bioparser/fasta_parser.hpp"
-#include "bioparser/fastq_parser.hpp"
-#include "bioparser/paf_parser.hpp"
+#include <string> 
 
+namespace align_reads {
 
-struct FastqSequence {
-    std::string name;
-    std::string seq;
-    std::string qual;
-  
-    FastqSequence(
-      const char* n, std::uint32_t ln,
-      const char* s, std::uint32_t ls,
-      const char* q, std::uint32_t lq
-    ) :name(n, ln), seq(s, ls), qual(q, lq) {}
-};
-
-struct FastaSequence {
+struct Sequence {
     std::string name;
     std::string seq;
   
-    FastaSequence(
+    Sequence(
       const char* n, std::uint32_t ln,
       const char* s, std::uint32_t ls
     ) :name(n, ln), seq(s, ls){}
 };
+
+    
+struct QSequence : Sequence {
+    std::string qual;
+  
+    QSequence(
+      const char* n, std::uint32_t ln,
+      const char* s, std::uint32_t ls,
+      const char* q, std::uint32_t lq
+    ) :Sequence(n, ln, s, ls), qual(q, lq) {}
+};
+
 
 
 struct Overlap {
@@ -56,3 +56,7 @@ struct Overlap {
     ) : q_name(qn, qnl), q_len(ql), q_start(qs), q_end(qe), dir(d), t_name(tn, tnl),
         t_len(tl), t_start(ts), t_end(te), num_match(nm), overlap_len(ol), mapq(q) {}
 };
+        
+} // namspace align_reads
+
+#endif // ALIGN_READS_TYPES_HPP_

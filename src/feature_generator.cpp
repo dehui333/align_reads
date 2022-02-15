@@ -50,10 +50,28 @@ FeatureGenerator::FeatureGenerator(const char* sequences_path, std::uint32_t num
         return s1->inflated_len > s2->inflated_len;        
     };
     
+    id_to_pos_index.resize(sequences.size());
     std::sort(sequences.begin(), sequences.end(), long_seq_first);
+    std::uint32_t pos_index = 0;
+    for (auto& s: sequences) {
+        id_to_pos_index[s->id] = pos_index++; 
+    }
     minimizer_engine.Minimize(sequences.begin(), sequences.end(), true);
     minimizer_engine.Filter(freq);
 }
+
+std::vector<std::uint32_t> FeatureGenerator::find_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq) {
+    std::vector<std::uint32_t> overlapping_reads;
+    std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(seq, true, false, true);
+    overlapping_reads.reserve(overlaps.size());
+    for (auto& o: overlaps) {
+        overlapping_reads.push_back(o.rhs_id);
+    }
+    return overlapping_reads;
+}
+
+
+
 
 
 

@@ -61,12 +61,5 @@ TEST(BasicTests, Construct_Generator_Fastq) {
         last_len = s->inflated_len;
     }
     std::uint32_t expected_pos_123 = gen_fastq.id_to_pos_index[123];
-    EXPECT_EQ(gen_fastq.sequences[expected_pos_123]->id, 123);
-    std::cout << gen_fastq.sequences[0]->name << std::endl;
-    auto os = gen_fastq.find_overlapping(gen_fastq.sequences[0]);
-    for (auto& i: os) {
-        auto pos = gen_fastq.id_to_pos_index[i];
-        std::cout << gen_fastq.sequences[pos]->name << std::endl;
-    }
-    
+    EXPECT_EQ(gen_fastq.sequences[expected_pos_123]->id, 123);    
 }

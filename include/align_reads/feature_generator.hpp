@@ -14,13 +14,16 @@ class FeatureGenerator {
 private:    
     std::vector<std::unique_ptr<biosoup::NucleicAcid>> sequences;
     ram::MinimizerEngine minimizer_engine;
+    std::vector<std::uint32_t> id_to_pos_index;
+    
+    std::vector<std::uint32_t> find_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);   
     
 public:
     
     FeatureGenerator(const char* sequences_file_path, std::uint32_t num_threads,
         std::uint8_t kmer_len, std::uint8_t window_len, double freq);
     
-    //std::vector<std::uint32_t> find_overlapping(std::unique_tr<biosoup::NucleicAcid> seq);   
+    
 };
 
 

@@ -3,4 +3,4 @@
 	url = https://github.com/rvaser/bioparser
 [submodule "ram"]
 	path = ram
-	url = git@github.com:lbcb-sci/ram.git
+	url = https://github.com/lbcb-sci/ram.git

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 project (align_reads)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -fPIC")
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(align_reads SHARED src/feature_generator.cpp)
@@ -10,6 +14,23 @@ if (NOT TARGET bioparser)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/bioparser EXCLUDE_FROM_ALL)
 endif ()
 target_link_libraries(align_reads bioparser::bioparser)
+
+# ram
+if (NOT TARGET ram)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ram EXCLUDE_FROM_ALL)
+endif ()
+target_link_libraries(align_reads ram::ram)
+
+# biosoup
+if (NOT TARGET biosoup)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/biosoup EXCLUDE_FROM_ALL)
+endif ()
+target_link_libraries(align_reads biosoup::biosoup)
+
+if (NOT TARGET thread_pool)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/thread_pool EXCLUDE_FROM_ALL)
+endif ()
+target_link_libraries(align_reads thread_pool::thread_pool)
 
 # gtest
 include(FetchContent)

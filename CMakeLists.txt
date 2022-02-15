@@ -6,31 +6,20 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-add_library(align_reads SHARED src/feature_generator.cpp)
+include_directories(include edlib/include)
+add_library(align_reads SHARED src/feature_generator.cpp edlib/src/edlib.cpp)
 
 # bioparser
 if (NOT TARGET bioparser)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/bioparser EXCLUDE_FROM_ALL)
+  add_subdirectory(bioparser EXCLUDE_FROM_ALL)
 endif ()
 target_link_libraries(align_reads bioparser::bioparser)
 
-# ram
+# ram. biosoup and thread_pool contained.
 if (NOT TARGET ram)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ram EXCLUDE_FROM_ALL)
+  add_subdirectory(ram EXCLUDE_FROM_ALL)
 endif ()
 target_link_libraries(align_reads ram::ram)
-
-# biosoup
-if (NOT TARGET biosoup)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/biosoup EXCLUDE_FROM_ALL)
-endif ()
-target_link_libraries(align_reads biosoup::biosoup)
-
-if (NOT TARGET thread_pool)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/thread_pool EXCLUDE_FROM_ALL)
-endif ()
-target_link_libraries(align_reads thread_pool::thread_pool)
 
 # gtest
 include(FetchContent)
@@ -43,7 +32,7 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 add_executable(
-  tests
+  tests 
   tests/basic_tests.cpp
 )
 target_link_libraries(

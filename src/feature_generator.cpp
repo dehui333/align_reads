@@ -8,6 +8,7 @@
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "biosoup/nucleic_acid.hpp"
+#include "edlib.h"
 #include "ram/minimizer_engine.hpp"
 #include "thread_pool/thread_pool.hpp"
 
@@ -60,6 +61,7 @@ FeatureGenerator::FeatureGenerator(const char* sequences_path, std::uint32_t num
     minimizer_engine.Filter(freq);
 }
 
+// Find the id of reads which overlaps with seq
 std::vector<std::uint32_t> FeatureGenerator::find_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq) {
     std::vector<std::uint32_t> overlapping_reads;
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(seq, true, false, true);
@@ -68,6 +70,21 @@ std::vector<std::uint32_t> FeatureGenerator::find_overlapping(std::unique_ptr<bi
         overlapping_reads.push_back(o.rhs_id);
     }
     return overlapping_reads;
+}
+
+void FeatureGenerator::align(std::unique_ptr<biosoup::NucleicAcid>& seq) {
+    std::vector<std::uint32_t> overlapping_reads = find_overlapping(seq);
+    for (auto& id: overlapping_reads) {
+        std::uint32_t pos_index = id_to_pos_index[id];
+        EdlibAlignResult result = edlibAlign(sequences[pos_index]->InflateData().c_str(), sequences[pos_index]->inflated_len,
+            seq->InflateData().c_str(), seq->inflated_len, edlibNewAlignConfig(-1, EDLIB_MODE_NW, EDLIB_TASK_PATH, NULL, 0));
+        
+        //do sth
+        
+        edlibFreeAlignResult(result); 
+    }
+    
+        
 }
 
 

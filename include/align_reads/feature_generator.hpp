@@ -2,6 +2,7 @@
 #define ALIGN_READS_FEATURE_GENERATOR_HPP_
 
 #include <memory> // unique_ptr
+#include <unordered_set>
 #include <vector> 
 
 #include "biosoup/nucleic_acid.hpp"
@@ -16,7 +17,12 @@ private:
     ram::MinimizerEngine minimizer_engine;
     std::vector<std::uint32_t> id_to_pos_index;
     
-    std::vector<std::uint32_t> find_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);   
+    struct reads_distribution {
+        std::vector<std::unordered_set<std::uint32_t>> reads_by_segment;
+        std::unordered_set<std::uint32_t> all_reads;
+    };    
+    
+    reads_distribution distribute_reads(std::unique_ptr<biosoup::NucleicAcid>& seq);   
     void align(std::unique_ptr<biosoup::NucleicAcid>& seq);
 public:
     

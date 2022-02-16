@@ -4,7 +4,7 @@
 #include "align_reads/feature_generator.hpp"
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
-
+#include "edlib.h"
 
 const char* reads_fastq_path = "../test_data/reads.fastq";
 const char* reads_fasta_path = "../test_data/reads.fasta";
@@ -61,5 +61,7 @@ TEST(BasicTests, Construct_Generator_Fastq) {
         last_len = s->inflated_len;
     }
     std::uint32_t expected_pos_123 = gen_fastq.id_to_pos_index[123];
-    EXPECT_EQ(gen_fastq.sequences[expected_pos_123]->id, 123);    
+    EXPECT_EQ(gen_fastq.sequences[expected_pos_123]->id, 123);
+    
 }
+

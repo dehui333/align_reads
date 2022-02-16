@@ -74,16 +74,24 @@ FeatureGenerator::FeatureGenerator(const char* sequences_path, std::uint32_t num
 FeatureGenerator::reads_distribution FeatureGenerator::distribute_reads(std::unique_ptr<biosoup::NucleicAcid>& seq) {    
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(seq, true, false, true); // all overlaps with seq    
     std::uint16_t num_segments = seq->inflated_len / MATRIX_COL_NUM + (seq->inflated_len % MATRIX_COL_NUM != 0);
-    std::vector<std::vector<biosoup::Overlap*>> overlaps_by_segment(num_segments);
+    std::vector<std::vector<FeatureGenerator::overlap_info*>> overlaps_by_segment(num_segments);
     FeatureGenerator::reads_distribution distribution;
+    std::vector<FeatureGenerator::overlap_info> overlap_infos;
     
-    // recalculate scores as the estimated number of non overlap positions on the query 
+    // sort overlaps by id to facilitate removing duplicates
+    auto rhs_id_sort = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
+        return o1.rhs_id < o2.rhs_id;  
+    };
+    std::sort(overlaps.begin(), overlaps.end(), rhs_id_sort);
+    
+    // obtain relevant overlap_info  
     std::uint32_t not_covered_left_query;
     std::uint32_t not_covered_right_query;
     std::uint32_t not_covered_left_target;
     std::uint32_t not_covered_right_target;
     int diff1;
     int diff2;
+    std::uint64_t last_id = -1;
     for (auto& o: overlaps) {
         not_covered_left_query = o.lhs_begin;
         not_covered_right_query = MATRIX_COL_NUM * num_segments - o.lhs_end; // pad right with unknowns
@@ -101,25 +109,32 @@ FeatureGenerator::reads_distribution FeatureGenerator::distribute_reads(std::uni
             diff1 = diff1 >= 0 ? diff1 : 0;
             diff2 = diff2 >= 0 ? diff2 : 0;
         }
-        o.score = static_cast<std::uint32_t>(diff1 + diff2);
-    }
-    // sort
-    auto least_not_covered_first = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
-        return o1.score < o2.score;
-    };
-    std::sort(overlaps.begin(), overlaps.end(), least_not_covered_first);
-    
-    // distribute 
-    for (auto& o: overlaps) {
-        std::uint32_t first_segment = o.lhs_begin / MATRIX_COL_NUM;
+                
+        std::uint32_t first_segment = o.lhs_begin / MATRIX_COL_NUM; // 0-based indices
         std::uint32_t last_segment = (o.lhs_end - 1)/ MATRIX_COL_NUM;
-        distribution.all_reads.insert(o.rhs_id);
-        for (uint32_t i = first_segment; i <= last_segment; i++) {
-            biosoup::Overlap* p = &o;
-            overlaps_by_segment[i].push_back(p);
-            distribution.reads_by_segment[i].insert(o.rhs_id);
+        std::uint32_t overlap_first_segment = MATRIX_COL_NUM - (o.lhs_begin - first_segment * MATRIX_COL_NUM); 
+        std::uint32_t overlap_last_segment = o.lhs_end - last_segment * MATRIX_COL_NUM;
+        std::uint32_t not_covered_len = static_cast<std::uint32_t>(diff1 + diff2);        
+        if (o.rhs_id != last_id) {
+            overlap_infos.emplace_back(o.rhs_id, not_covered_len,
+                first_segment, last_segment, overlap_first_segment, overlap_last_segment);
+            last_id = o.rhs_id;
+        } else {
+            if (overlap_infos.back().not_covered_len > not_covered_len) {
+                overlap_infos.pop_back();
+                overlap_infos.emplace_back(o.rhs_id, not_covered_len,
+                    first_segment, last_segment, overlap_first_segment, overlap_last_segment);
+            }           
         }
+        
     }
+    // sort overlap infos by not covered len
+ 
+ 
+    // distribute till enough for each segment
+ 
+    // filter extras for each segment
+    
     
     return distribution;
 }

@@ -66,15 +66,13 @@ FeatureGenerator::FeatureGenerator(const char* sequences_path, std::uint32_t num
 }
 
 // Allocate overlapping reads to each segment of seq e.g. pos 1-> pos k, pos k + 1-> pos 2k ...
-// Reads are allocated preferentially according to 'how contained' they are in seq
+// Reads are allocated preferentially according to 'how contained' they are in seq, stopping for a segment if enough 
 // After allocation, 
-// If a segment has id count > MATRIX_ROW_NUM, its reads are filtered, preferring those that overlap more positions on seq
-// If a segment has id count < MATRIX_ROW_NUM, do nothing for now, 
+// If a segment has id count < MATRIX_ROW_NUM, do nothing for now 
 // wait till alignment to see if there are more actual overlaps, if still not enough, duplicate 
 FeatureGenerator::reads_distribution FeatureGenerator::distribute_reads(std::unique_ptr<biosoup::NucleicAcid>& seq) {    
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(seq, true, false, true); // all overlaps with seq    
     std::uint16_t num_segments = seq->inflated_len / MATRIX_COL_NUM + (seq->inflated_len % MATRIX_COL_NUM != 0);
-    std::vector<std::vector<FeatureGenerator::overlap_info*>> overlaps_by_segment(num_segments);
     FeatureGenerator::reads_distribution distribution;
     std::vector<FeatureGenerator::overlap_info> overlap_infos;
     
@@ -89,9 +87,11 @@ FeatureGenerator::reads_distribution FeatureGenerator::distribute_reads(std::uni
     std::uint32_t not_covered_right_query;
     std::uint32_t not_covered_left_target;
     std::uint32_t not_covered_right_target;
+    std::uint32_t not_covered_len;
     int diff1;
     int diff2;
     std::uint64_t last_id = -1;
+    std::uint32_t last_not_covered_len = -1; 
     for (auto& o: overlaps) {
         not_covered_left_query = o.lhs_begin;
         not_covered_right_query = MATRIX_COL_NUM * num_segments - o.lhs_end; // pad right with unknowns
@@ -110,32 +110,46 @@ FeatureGenerator::reads_distribution FeatureGenerator::distribute_reads(std::uni
             diff2 = diff2 >= 0 ? diff2 : 0;
         }
                 
-        std::uint32_t first_segment = o.lhs_begin / MATRIX_COL_NUM; // 0-based indices
+        std::uint32_t first_segment = o.lhs_begin / MATRIX_COL_NUM; // 0-based indices. Index of left most segment this read overlaps on seq
         std::uint32_t last_segment = (o.lhs_end - 1)/ MATRIX_COL_NUM;
         std::uint32_t overlap_first_segment = MATRIX_COL_NUM - (o.lhs_begin - first_segment * MATRIX_COL_NUM); 
         std::uint32_t overlap_last_segment = o.lhs_end - last_segment * MATRIX_COL_NUM;
-        std::uint32_t not_covered_len = static_cast<std::uint32_t>(diff1 + diff2);        
+        not_covered_len = diff1 + diff2;        
         if (o.rhs_id != last_id) {
-            overlap_infos.emplace_back(o.rhs_id, not_covered_len,
-                first_segment, last_segment, overlap_first_segment, overlap_last_segment);
+            overlap_infos.emplace_back(o.rhs_id, not_covered_len == 0,
+                first_segment, last_segment, overlap_first_segment + overlap_last_segment);
             last_id = o.rhs_id;
+            last_not_covered_len = not_covered_len;
         } else {
-            if (overlap_infos.back().not_covered_len > not_covered_len) {
+            if (last_not_covered_len > not_covered_len) {
                 overlap_infos.pop_back();
-                overlap_infos.emplace_back(o.rhs_id, not_covered_len,
-                    first_segment, last_segment, overlap_first_segment, overlap_last_segment);
+                overlap_infos.emplace_back(o.rhs_id, not_covered_len == 0,
+                    first_segment, last_segment, overlap_first_segment + overlap_last_segment);
+                last_not_covered_len = not_covered_len;
             }           
         }
         
     }
-    // sort overlap infos by not covered len
- 
- 
-    // distribute till enough for each segment
- 
-    // filter extras for each segment
+    // sort overlap infos by priority
+    auto by_priority = [] (const FeatureGenerator::overlap_info& o1, const FeatureGenerator::overlap_info& o2) {
+        if (o1.contained == o2.contained) {
+            return o1.overlap_edges > o2.overlap_edges;
+        } else {
+            return o1.contained;
+        }
+    };
     
-    
+    std::sort(overlap_infos.begin(), overlap_infos.end(), by_priority);
+ 
+    // distribute till enough
+    for (auto& o: overlap_infos) {
+        distribution.all_reads.insert(o.id);
+        for (std::uint32_t k = o.first_segment; k <= o.last_segment; k++) {
+            if (distribution.reads_by_segment[k].size() == MATRIX_ROW_NUM) continue;
+                distribution.reads_by_segment[k].insert(o.id);
+        }
+    }
+       
     return distribution;
 }
 

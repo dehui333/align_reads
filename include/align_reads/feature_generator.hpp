@@ -19,16 +19,16 @@ private:
     
     struct overlap_info {
         std::uint32_t id;
-        std::uint32_t not_covered_len; // estimated
+        bool contained; // is the read contained in seq? - based on estimation
         std::uint32_t first_segment;
         std::uint32_t last_segment;
-        std::uint32_t overlap_first_segment; // estimated
-        std::uint32_t overlap_last_segment; // estimated
+        std::uint32_t overlap_edges; // estimated
+
         
-        overlap_info(std::uint32_t id, std::uint32_t not_covered_len, std::uint32_t first_segment, 
-            std::uint32_t last_segment, std::uint32_t overlap_first_segment, std::uint32_t overlap_last_segment)
-            : id(id), not_covered_len(not_covered_len), first_segment(first_segment), last_segment(last_segment), 
-            overlap_first_segment(overlap_first_segment), overlap_last_segment(overlap_last_segment) {}
+        overlap_info(std::uint32_t id, bool contained, std::uint32_t first_segment, 
+            std::uint32_t last_segment, std::uint32_t overlap_edges)
+            : id(id), contained(contained), first_segment(first_segment), last_segment(last_segment), 
+            overlap_edges(overlap_edges) {}
     };
     
     struct reads_distribution {

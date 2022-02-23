@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project (align_reads)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -fPIC")
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -33,7 +33,7 @@ enable_testing()
 
 add_executable(
   tests 
-  tests/basic_tests.cpp
+  tests/tests.cpp
 )
 target_link_libraries(
   tests

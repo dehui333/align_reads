@@ -62,6 +62,26 @@ TEST(BasicTests, Construct_Generator_Fastq) {
     }
     std::uint32_t expected_pos_123 = gen_fastq.id_to_pos_index[123];
     EXPECT_EQ(gen_fastq.sequences[expected_pos_123]->id, 123);
-    
 }
 
+TEST(ComponentTests, Encoder_Decoder) {
+    EXPECT_EQ(align_reads::ENCODER['A'], 0);
+    EXPECT_EQ(align_reads::ENCODER['C'], 1);
+    EXPECT_EQ(align_reads::ENCODER['G'], 2);
+    EXPECT_EQ(align_reads::ENCODER['T'], 3);
+    EXPECT_EQ(align_reads::ENCODER['_'], 4);
+    
+    EXPECT_EQ(align_reads::DECODER[0], 'A');
+    EXPECT_EQ(align_reads::DECODER[1], 'C');
+    EXPECT_EQ(align_reads::DECODER[2], 'G');
+    EXPECT_EQ(align_reads::DECODER[3], 'T');
+    EXPECT_EQ(align_reads::DECODER[4], '_');
+}
+
+TEST(ComponentTests, aligning) {
+    align_reads::FeatureGenerator gen_fasta {"../test_data/reads_align.fasta", 1, 15, 5, 0.001};
+    auto result = gen_fasta.align(gen_fasta.sequences[0]);
+    gen_fasta.print_align(result);
+    
+    
+}

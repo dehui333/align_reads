@@ -69,47 +69,74 @@ FeatureGenerator::FeatureGenerator(const char* sequences_path, std::uint32_t num
     minimizer_engine.Filter(freq);
 }
 
-FeatureGenerator::align_result FeatureGenerator::align(std::unique_ptr<biosoup::NucleicAcid>& target) {
-    std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); // find all overlaps with target 
+FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std::string> queries, std::string target) {
+    align_result r;
+    return r;
+}
+
+FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::string> queries, std::string target) {
+    align_result r;
+    return r;
+}
+
+FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
+    /*
+    // find all overlaps with target
+    std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true);  
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };
-    std::vector<biosoup::Overlap*> unique_overlaps; // sort overlaps by id 
+    
+    // sort overlaps by id
+    std::vector<biosoup::Overlap*> unique_overlaps;  
     std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
-    std::uint64_t last_id = -1;
+    
     // remove duplicates
+    std::uint64_t last_id = -1;
     for (auto& o : overlaps) {
         if (o.rhs_id != last_id) {
             unique_overlaps.push_back(&o);
             last_id = o.rhs_id;
         }
     }
+    // get target string 
+    std::string target_string = target->InflateData();          
 
-    std::string target_underlying_string = target->InflateData();          
-    const char* target_underlying = target_underlying_string.c_str();
-    //start to fill in align results
+    // Initialize results
     align_result result;
-    result.infos.resize(unique_overlaps.size() + 1);
-    result.target_positions_pileup.resize(target->inflated_len);
-    result.ins_positions_pileup.resize(target->inflated_len);
+    std::vector<read_info> infos;
+    // infos
+    infos.resize(unique_overlaps.size() + 1);
+    infos[0].id = target->id;
+    infos[0].same_strand = true;
+    infos[0].align_start = 0;
+    infos[0].align_end = target->inflated_len;
+    
+    // result.target_positions_pileup
+    result.target_positions_pileup.resize(target_string.size());        
     for (std::uint32_t i = 0; i < result.target_positions_pileup.size(); i++) {
-        auto& v = result.target_positions_pileup[i];
-        v.resize(unique_overlaps.size() + 1, ENCODER['_']);
-        v[0] = ENCODER[static_cast<std::uint8_t>(target_underlying[i])];
+        auto& column = result.target_positions_pileup[i];
+        column.resize(unique_overlaps.size() + 1, ENCODER['_']);
+        column[0] = ENCODER[static_cast<std::uint8_t>(target_string[i])];
     }
-    result.infos[0].id = target->id;
-    result.infos[0].same_strand = true;
-    result.infos[0].align_start = 0;
-    result.infos[0].align_end = target->inflated_len;
-    result.width = target->inflated_len; // will be incremented
-    for (auto& o : unique_overlaps) {
+    
+    // result.ins_positions_pileup
+    result.ins_positions_pileup.resize(target_string.size());
+    
+    // result.width
+    result.width = target_string.size(); // will be incremented
+    
+    // Aligning with queries and filling up results
+    for (std::uint32_t k = 0; k < unique_overlaps.size(); k++) {
+        auto& o = unique_overlaps[k];
         std::uint32_t pos_index = id_to_pos_index[o->rhs_id];
         auto& query_seq = sequences[pos_index];
         if (!o->strand) {
             query_seq->ReverseAndComplement();
         }
-        EdlibAlignResult align = edlibAlign(query_seq->InflateData().c_str(), query_seq->inflated_len,
-            target_underlying, target->inflated_len, edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+        std::string query_string = query_seq->InflateData();
+        EdlibAlignResult align = edlibAlign(query_string.c_str(), query_string.size(),
+            target_string.c_str(), target_string.size(), edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
         std::uint32_t query_index = 0; // next query position
         std::uint32_t target_index = 0; // next target position
         std::uint32_t ins_index = 0; // next ins index for the current segment
@@ -117,23 +144,19 @@ FeatureGenerator::align_result FeatureGenerator::align(std::unique_ptr<biosoup::
         for (int i = 0; i < align.alignmentLength; i++) {
             switch (align.alignment[i]) {
                 case 0:  // match
+                    result.target_positions_pileup[target_index++][k+1] = ENCODER[static_cast<std::uint8_t>(query_string[query_index++])];
                     break;
                 case 1:  // ins
+                    if (target_index == 0) {
+                        continue;
+                    }
                     break;
                 case 2:  // del
                     break;
                 case 3:  // mismatch
                     break;
                 default:
-                    std::cerr << "Unknown alignment result by edlib!" << std::endl;
-                
-                
-                
-                
-                
-                
-                
-                
+                    std::cerr << "Unknown alignment result by edlib!" << std::endl;               
             }            
         }
         
@@ -142,41 +165,31 @@ FeatureGenerator::align_result FeatureGenerator::align(std::unique_ptr<biosoup::
     
     
     
-    return result;    
+    
+    return result;*/
+    align_overlapping_result r;
+    return r;    
 }
 
 void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
-    /*
-     struct read_info {
-        std::uint32_t id;
-        bool same_strand;
-        std::uint32_t align_start;
-        std::uint32_t align_end;
-    };
-    
-    struct align_result {
-        std::vector<read_info> infos;
-        std::vector<std::vector<std::uint8_t>> target_positions_pileup;
-        // which target position? -> which ins at that position? -> which row?
-        std::vector<std::vector<std::vector<std::uint8_t>>> ins_positions_pileup;
-    };
-    */
+
     std::vector<std::string> output_rows;
-    output_rows.resize(r.infos.size());
+    std::uint32_t num_rows = r.target_positions_pileup[0].size();
+    output_rows.resize(num_rows);
     for (auto& row: output_rows) {
         row.reserve(r.target_positions_pileup.size());
     }
     
     for (std::uint32_t i = 0; i < r.target_positions_pileup.size(); i++) { // for each target position        
         auto& column = r.target_positions_pileup[i];
-        for (std::uint32_t k = 0; k < r.infos.size(); k++) { // move down the column
+        for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
             output_rows[k].push_back(DECODER[column[k]]);                                              
         }
         
         auto& ins_columns = r.ins_positions_pileup[i];
         for (std::uint32_t j = 0; j < ins_columns.size() ; j++) { // for each ins column here
             auto& ins_column = ins_columns[j];                       
-            for (std::uint32_t k = 0; k < r.infos.size(); k++) { // move down the column
+            for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
                 output_rows[k].push_back(DECODER[ins_column[k]]);                   
             }
         }

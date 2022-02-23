@@ -44,18 +44,30 @@ private:
     };
     
     struct align_result {
-        std::vector<read_info> infos;
         std::vector<std::vector<std::uint8_t>> target_positions_pileup;
         // which target position? -> which ins at that position? -> which row?
         std::vector<std::vector<std::vector<std::uint8_t>>> ins_positions_pileup;
         std::uint32_t width;
     };
-        
+    
+    struct align_overlapping_result {
+        align_result alignment;
+        read_info info;
+    };
         
         
     void print_align(align_result& r);
     
-    align_result align(std::unique_ptr<biosoup::NucleicAcid>& seq);
+    
+    align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
+    
+    // align queries to target
+    align_result align_to_target(std::vector<std::string> queries, std::string target);
+    
+    // align queries to target, and also try to align the ins segments
+    align_result pseudoMSA(std::vector<std::string> queries, std::string target);
+    
+    
 public:
     
     FeatureGenerator(const char* sequences_file_path, std::uint32_t num_threads,

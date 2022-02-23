@@ -80,8 +80,8 @@ TEST(ComponentTests, Encoder_Decoder) {
 
 TEST(ComponentTests, aligning) {
     align_reads::FeatureGenerator gen_fasta {"../test_data/reads_align.fasta", 1, 15, 5, 0.001};
-    auto result = gen_fasta.align(gen_fasta.sequences[0]);
-    gen_fasta.print_align(result);
+    //auto result = gen_fasta.align(gen_fasta.sequences[0]);
+    //gen_fasta.print_align(result);
     
     
 }

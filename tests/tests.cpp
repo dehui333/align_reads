@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #define private public
-#include "align_reads/feature_generator.hpp"
+#include "../src/feature_generator.cpp"
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "edlib.h"
@@ -79,9 +79,10 @@ TEST(ComponentTests, Encoder_Decoder) {
 }
 
 TEST(ComponentTests, aligning) {
-    align_reads::FeatureGenerator gen_fasta {"../test_data/reads_align.fasta", 1, 15, 5, 0.001};
-    //auto result = gen_fasta.align(gen_fasta.sequences[0]);
-    //gen_fasta.print_align(result);
+    std::string target = "GCGCTCTGCAAGACCT";
+    std::vector<std::string> queries = {"AAGAATGCTCAATGCAAAAGACCTAA", "GCTC"};
+    auto result = align_reads::FeatureGenerator::align_to_target(queries, target);    
+    align_reads::FeatureGenerator::print_align(result);
     
     
 }

@@ -9,25 +9,6 @@
 #include "ram/minimizer_engine.hpp"
 
 namespace align_reads {
-    
-constexpr static std::uint8_t ENCODER[] = {
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255,    
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 0, 255, 1, 255, 255,
-    255, 2, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 3, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 4, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    255, 255, 255, 255, 255, 255, 255, 255
-};
-constexpr static char DECODER[] = {
-    'A', 'C', 'G', 'T', '_'
-};
 
 class FeatureGenerator {
 
@@ -44,9 +25,9 @@ private:
     };
     
     struct align_result {
-        std::vector<std::vector<std::uint8_t>> target_positions_pileup;
+        std::vector<std::vector<char>> target_positions_pileup;
         // which target position? -> which ins at that position? -> which row?
-        std::vector<std::vector<std::vector<std::uint8_t>>> ins_positions_pileup;
+        std::vector<std::vector<std::vector<char>>> ins_positions_pileup;
         std::uint32_t width;
     };
     
@@ -55,19 +36,16 @@ private:
         read_info info;
     };
         
-        
-    void print_align(align_result& r);
-    
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
     // align queries to target
-    align_result align_to_target(std::vector<std::string> queries, std::string target);
+    static align_result align_to_target(std::vector<std::string>& queries, std::string& target);
     
     // align queries to target, and also try to align the ins segments
-    align_result pseudoMSA(std::vector<std::string> queries, std::string target);
+    static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target);
     
-    
+    static void print_align(align_result& r);
 public:
     
     FeatureGenerator(const char* sequences_file_path, std::uint32_t num_threads,

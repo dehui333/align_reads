@@ -29,6 +29,7 @@ private:
         // which target position? -> which ins at that position? -> which row?
         std::vector<std::vector<std::vector<char>>> ins_positions_pileup;
         std::uint32_t width;
+        std::vector<std::vector<std::uint32_t>> inserters; // contains positional indices of queries
     };
     
     struct align_overlapping_result {
@@ -40,7 +41,7 @@ private:
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
     // align queries to target
-    static align_result align_to_target(std::vector<std::string>& queries, std::string& target);
+    static align_result align_to_target(std::vector<std::string>& queries, std::string& target, bool clip_query);
     
     // align queries to target, and also try to align the ins segments
     static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target);

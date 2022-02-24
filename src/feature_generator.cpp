@@ -86,18 +86,11 @@ FeatureGenerator::FeatureGenerator(const char* sequences_path, std::uint32_t num
     minimizer_engine.Filter(freq);
 }
 
-FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std::string>& queries, std::string& target) {
-    /*
-    struct align_result {
-        std::vector<std::vector<std::uint8_t>> target_positions_pileup;
-        // which target position? -> which ins at that position? -> which row?
-        std::vector<std::vector<std::vector<std::uint8_t>>> ins_positions_pileup;
-        std::uint32_t width;
-    };
-    */
-    
+FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std::string>& queries, std::string& target, bool clip_query) {
+
+    auto mode = clip_query ? EDLIB_MODE_HW : EDLIB_MODE_NW;
     align_result result;
-    
+    std::uint8_t for_front_ins = clip_query ? 0 : 1;
     // Fill in the bases from the target into the first row
     result.target_positions_pileup.resize(target.size());        
     for (std::uint32_t i = 0; i < result.target_positions_pileup.size(); i++) { // for each column
@@ -107,16 +100,19 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
     }
     
     // Allowance for insertion columns after each target position
-    result.ins_positions_pileup.resize(target.size());
+    result.ins_positions_pileup.resize(target.size() + for_front_ins);
     
     // Initialize width of the alignment to the length of the target 
     result.width = target.size(); // will be incremented along with adding insertion columns
+    
+    // Initialize the record of who is inserting at each position
+    result.inserters.resize(target.size() + for_front_ins);
     
     // Aligning queries to target and filling up/adding columns
     for (std::uint32_t k = 0; k < queries.size(); k++) {
         auto& query = queries[k];
         EdlibAlignResult align = edlibAlign(query.c_str(), query.size(),
-            target.c_str(), target.size(), edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+            target.c_str(), target.size(), edlibNewAlignConfig(-1, mode, EDLIB_TASK_PATH, NULL, 0));
         std::uint32_t next_query_index = 0; // upcoming query position
         std::uint32_t next_target_index = align.startLocations[0]; // upcoming target position
         std::uint32_t next_ins_index = 0; // upcoming ins index for the current segment
@@ -129,13 +125,26 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
                     break;
                 }
                 case 1: { // ins
-                    if (next_target_index == align.startLocations[0] || next_target_index == align.endLocations[0] + 1) {
-                        next_query_index++;
-                        continue;  // insertions in the query to the sides of target is ignored
+                    std::uint32_t ins_columns_index = next_target_index - 1;
+                    if (clip_query) {
+                        // insertions in the query to the sides of target is ignored
+                        if (next_target_index == align.startLocations[0]) {
+                            next_query_index++;
+                            continue;
+                        } else if (next_target_index == align.endLocations[0] + 1) {
+                            i = align.alignmentLength;  // if at ins of the query to the right of target, terminate loop early
+                            continue;                       
+                        }    
+                    } else {
+                        if (next_target_index == 0) {
+                            ins_columns_index = target.size();        
+                        }
                     }
-                
+                    if (next_ins_index == 0) {
+                        result.inserters[ins_columns_index].push_back(k);
+                    }                        
                     // check if we have enough columns ready for this target position
-                    auto& ins_columns = result.ins_positions_pileup[next_target_index-1];
+                    auto& ins_columns = result.ins_positions_pileup[ins_columns_index];
                     if (ins_columns.size() < next_ins_index + 1) {
                         // if not enough, create new column
                         ins_columns.resize(next_ins_index + 1);
@@ -170,8 +179,10 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
 }
 
 FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::string>& queries, std::string& target) {
-    align_result r;
-    return r;
+    
+    align_result result = align_to_target(queries, target, true);
+    
+    return result;
 }
 
 FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
@@ -236,13 +247,23 @@ void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
         row.reserve(r.width);
     }
     
+    if (r.ins_positions_pileup.size() > r.target_positions_pileup.size()) {
+        auto& ins_columns = r.ins_positions_pileup[r.target_positions_pileup.size()];
+        for (std::uint32_t j = 0; j < ins_columns.size() ; j++) { // for each ins column here
+            auto& ins_column = ins_columns[j];
+            for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
+                output_rows[k].push_back(ins_column[k]);                   
+            }
+        }     
+    }
+    
     for (std::uint32_t i = 0; i < r.target_positions_pileup.size(); i++) { // for each target position        
         auto& column = r.target_positions_pileup[i];
         for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
             output_rows[k].push_back(column[k]);                                              
         }
         auto& ins_columns = r.ins_positions_pileup[i];
-        for (std::uint32_t j = 0; j < ins_columns.size() ; j++) { // for each ins column here
+        for (std::uint32_t j = 0; j < ins_columns.size(); j++) { // for each ins column here
             auto& ins_column = ins_columns[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
                 output_rows[k].push_back(ins_column[k]);                   
@@ -252,8 +273,7 @@ void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
     }
     //printing
     for (auto& row: output_rows) {
-        std::cout << row << std::endl;
-        
+        std::cout << row << std::endl;       
     }
     
     

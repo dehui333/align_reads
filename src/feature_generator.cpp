@@ -92,15 +92,15 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
     align_result result;
     std::uint8_t for_front_ins = clip_query ? 0 : 1;
     // Fill in the bases from the target into the first row
-    result.target_positions_pileup.resize(target.size());        
-    for (std::uint32_t i = 0; i < result.target_positions_pileup.size(); i++) { // for each column
-        auto& column = result.target_positions_pileup[i];
+    result.target_columns.resize(target.size());        
+    for (std::uint32_t i = 0; i < result.target_columns.size(); i++) { // for each column
+        auto& column = result.target_columns[i];
         column.resize(queries.size() + 1, '_');
         column[0] = target[i]; // the first item of each row - makes up the first row
     }
     
     // Allowance for insertion columns after each target position
-    result.ins_positions_pileup.resize(target.size() + for_front_ins);
+    result.ins_columns.resize(target.size() + for_front_ins);
     
     // Initialize width of the alignment to the length of the target 
     result.width = target.size(); // will be incremented along with adding insertion columns
@@ -120,7 +120,7 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
             switch (align.alignment[i]) {
                 case 0: { // match
                     //place matching query base into column
-                    result.target_positions_pileup[next_target_index++][k+1] = query[next_query_index++]; 
+                    result.target_columns[next_target_index++][k+1] = query[next_query_index++]; 
                     next_ins_index = 0;
                     break;
                 }
@@ -141,10 +141,14 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
                         }
                     }
                     if (next_ins_index == 0) {
-                        result.inserters[ins_columns_index].push_back(k);
+                        auto& v = result.inserters[ins_columns_index]; 
+                        v.push_back(k);
+                        if (v.size() == 2) {
+                            result.ins_at_least2.push_back(ins_columns_index);
+                        }
                     }                        
                     // check if we have enough columns ready for this target position
-                    auto& ins_columns = result.ins_positions_pileup[ins_columns_index];
+                    auto& ins_columns = result.ins_columns[ins_columns_index];
                     if (ins_columns.size() < next_ins_index + 1) {
                         // if not enough, create new column
                         ins_columns.resize(next_ins_index + 1);
@@ -161,7 +165,7 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
                 }
                 case 3: { // mismatch          
                     // place mismatching query base into column
-                    result.target_positions_pileup[next_target_index++][k+1] = query[next_query_index++]; 
+                    result.target_columns[next_target_index++][k+1] = query[next_query_index++]; 
                     next_ins_index = 0;
                     break;
                 }
@@ -181,6 +185,55 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
 FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::string>& queries, std::string& target) {
     
     align_result result = align_to_target(queries, target, true);
+    print_align(result);
+    for (auto& ins_pos : result.ins_at_least2) { // for all positions that have at least two queries with insertions, 
+        // extract the ins segments there
+        std::uint32_t position_index_longest = 0; // index in ins_segments
+        std::uint32_t longest_ins_len = 0;
+        
+        std::vector<std::string> ins_segments;
+        auto inserters_at_pos = result.inserters[ins_pos];
+        ins_segments.resize(inserters_at_pos.size());
+        auto& ins_columns = result.ins_columns[ins_pos];
+        for (auto& column : ins_columns) { // for each column, extract the non gap bases for the queries with ins there
+            for (std::uint32_t i = 0 ; i < inserters_at_pos.size(); i++) {
+                char& base = column[inserters_at_pos[i]+1];
+                auto& segment = ins_segments[i];
+                if (base != '_') {
+                    segment.push_back(base);
+                    if (segment.size() > longest_ins_len) {
+                        position_index_longest = i;
+                        longest_ins_len = segment.size();
+                    }
+                }
+            }            
+        }
+        std::uint32_t query_id_longest_ins = inserters_at_pos[position_index_longest];
+        inserters_at_pos.erase(inserters_at_pos.begin() + position_index_longest);
+        std::string longest_ins_segment = std::move(ins_segments[position_index_longest]);
+        ins_segments.erase(ins_segments.begin() + position_index_longest);
+        auto sub_result = align_to_target(ins_segments, longest_ins_segment, false);
+        
+        ins_columns.resize(sub_result.width);
+        std::uint32_t main_column_id = 0;
+        for(std::uint32_t i = 0; i < sub_result.target_columns.size(); i++) {
+            auto& ins_column = ins_columns[main_column_id++];
+            auto& sub_column = sub_result.target_columns[i];
+            ins_column[query_id_longest_ins + 1] = sub_column[0];
+            for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
+                ins_column[inserters_at_pos[j] + 1] = sub_column[j + 1];               
+            }
+            auto& sub_ins_columns = sub_result.ins_columns[i];
+            for (std::uint32_t j = 0; j < sub_ins_columns.size(); j++) {
+                auto& ins_column = ins_columns[main_column_id++];
+                auto& sub_column = sub_ins_columns[j];
+                ins_column[query_id_longest_ins + 1] = sub_column[0];    
+                for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
+                ins_column[inserters_at_pos[j] + 1] = sub_column[j + 1];               
+                }    
+            }            
+        }           
+    }
     
     return result;
 }
@@ -241,14 +294,14 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
 void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
 
     std::vector<std::string> output_rows;
-    std::uint32_t num_rows = r.target_positions_pileup[0].size();
+    std::uint32_t num_rows = r.target_columns[0].size();
     output_rows.resize(num_rows);
     for (auto& row: output_rows) {
         row.reserve(r.width);
     }
     
-    if (r.ins_positions_pileup.size() > r.target_positions_pileup.size()) {
-        auto& ins_columns = r.ins_positions_pileup[r.target_positions_pileup.size()];
+    if (r.ins_columns.size() > r.target_columns.size()) {
+        auto& ins_columns = r.ins_columns[r.target_columns.size()];
         for (std::uint32_t j = 0; j < ins_columns.size() ; j++) { // for each ins column here
             auto& ins_column = ins_columns[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
@@ -257,12 +310,12 @@ void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
         }     
     }
     
-    for (std::uint32_t i = 0; i < r.target_positions_pileup.size(); i++) { // for each target position        
-        auto& column = r.target_positions_pileup[i];
+    for (std::uint32_t i = 0; i < r.target_columns.size(); i++) { // for each target position        
+        auto& column = r.target_columns[i];
         for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
             output_rows[k].push_back(column[k]);                                              
         }
-        auto& ins_columns = r.ins_positions_pileup[i];
+        auto& ins_columns = r.ins_columns[i];
         for (std::uint32_t j = 0; j < ins_columns.size(); j++) { // for each ins column here
             auto& ins_column = ins_columns[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column

@@ -25,11 +25,12 @@ private:
     };
     
     struct align_result {
-        std::vector<std::vector<char>> target_positions_pileup;
+        std::vector<std::vector<char>> target_columns;
         // which target position? -> which ins at that position? -> which row?
-        std::vector<std::vector<std::vector<char>>> ins_positions_pileup;
+        std::vector<std::vector<std::vector<char>>> ins_columns;
         std::uint32_t width;
-        std::vector<std::vector<std::uint32_t>> inserters; // contains positional indices of queries
+        std::vector<std::vector<std::uint32_t>> inserters; // contains positional index of queries
+        std::vector<std::uint32_t> ins_at_least2;
     };
     
     struct align_overlapping_result {

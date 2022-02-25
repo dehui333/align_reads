@@ -80,16 +80,10 @@ TEST(ComponentTests, Encoder_Decoder) {
 
 TEST(ComponentTests, aligning) {
     std::string target = "GACTAGGAC";
-    std::vector<std::string> queries = {"AAGACTACGGACAA", "GACTTAGGGAC"};
-    auto result = align_reads::FeatureGenerator::align_to_target(queries, target, false);    
-    align_reads::FeatureGenerator::print_align(result);
-    std::cout << "width: " << result.width << std::endl;
-    for (std::uint32_t i = 0; i < result.inserters.size(); i ++) {
-        std::cout << "ins at pos " << i  << ": "<< std::endl;
-        for (auto& j: result.inserters[i]) {
-            std::cout << j << std::endl;
-        }
-    }
+    std::vector<std::string> queries = {"AAGACTTCACGGTACAA", "GACTCAGGGAC"};
+    auto result = align_reads::FeatureGenerator::pseudoMSA(queries, target);    
+    //align_reads::FeatureGenerator::print_align(result);
+    
     
     
 }

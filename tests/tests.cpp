@@ -83,7 +83,10 @@ TEST(ComponentTests, aligning) {
     std::vector<std::string> queries = {"AAGACTTCACGGTACAA", "GACTCAGGGAC"};
     auto result = align_reads::FeatureGenerator::pseudoMSA(queries, target);    
     //align_reads::FeatureGenerator::print_align(result);
-    
-    
-    
+}
+
+TEST(ComponentTests, align_overlapping) {
+    align_reads::FeatureGenerator gen_fasta {"../test_data/reads_align.fasta", 3, 15, 5, 0.001};
+    auto result = gen_fasta.align_overlapping(gen_fasta.sequences[0]);
+    align_reads::FeatureGenerator::print_align(result.alignment);
 }

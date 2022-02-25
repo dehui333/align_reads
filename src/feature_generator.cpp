@@ -116,6 +116,7 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
         std::uint32_t next_query_index = 0; // upcoming query position
         std::uint32_t next_target_index = align.startLocations[0]; // upcoming target position
         std::uint32_t next_ins_index = 0; // upcoming ins index for the current segment
+        result.align_boundaries.emplace_back(static_cast<std::uint32_t>(align.startLocations[0]), static_cast<std::uint32_t>(align.endLocations[0]));
         for (int i = 0; i < align.alignmentLength; i++) {
             switch (align.alignment[i]) {
                 case 0: { // match
@@ -185,7 +186,6 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
 FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::string>& queries, std::string& target) {
     
     align_result result = align_to_target(queries, target, true);
-    print_align(result);
     for (auto& ins_pos : result.ins_at_least2) { // for all positions that have at least two queries with insertions, 
         // extract the ins segments there
         std::uint32_t position_index_longest = 0; // index in ins_segments
@@ -239,7 +239,11 @@ FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::stri
 }
 
 FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
-    /*
+    
+    // get target string 
+    std::string target_string = target->InflateData();      
+    std::uint32_t target_id = target->id;
+    
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true);  
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
@@ -250,84 +254,77 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
     std::vector<biosoup::Overlap*> unique_overlaps;  
     std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
     
-    // remove duplicates
+    // Fill up infos and overlapping reads 
+    std::vector<read_info> infos;
+    infos.reserve(overlaps.size());
+    std::vector<std::string> overlapping_reads;
+    overlapping_reads.reserve(overlaps.size());
+    
     std::uint64_t last_id = -1;
     for (auto& o : overlaps) {
         if (o.rhs_id != last_id) {
             unique_overlaps.push_back(&o);
             last_id = o.rhs_id;
+            infos.emplace_back(o.rhs_id, !o.strand);
+            overlapping_reads.push_back(sequences[id_to_pos_index[o.rhs_id]]->InflateData());
         }
     }
-    // get target string 
-    std::string target_string = target->InflateData();          
-
-    // Initialize results
-    align_result result;
-    std::vector<read_info> infos;
-    // infos
-    infos.resize(unique_overlaps.size() + 1);
-    infos[0].id = target->id;
-    infos[0].same_strand = true;
-    infos[0].align_start = 0;
-    infos[0].align_end = target->inflated_len;
-    
-    // result.target_positions_pileup
-    
-    
-    // result.ins_positions_pileup
-
-    
-    // result.width
-    result.width = target_string.size(); // will be incremented
-    
-    // Aligning with queries and filling up results
-    
-    
-    
-    
-    
-    return result;*/
-    align_overlapping_result r;
-    return r;    
+    auto alignment = pseudoMSA(overlapping_reads, target_string);
+    return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
 }
 
 void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
-
-    std::vector<std::string> output_rows;
+    std::uint32_t block_width = 100;
+    std::vector<std::vector<std::string>> output_blocks;
     std::uint32_t num_rows = r.target_columns[0].size();
-    output_rows.resize(num_rows);
-    for (auto& row: output_rows) {
-        row.reserve(r.width);
+    std::uint32_t num_blocks = r.width / block_width;
+    num_blocks = r.width % block_width == 0 ? num_blocks : num_blocks + 1;
+    output_blocks.resize(num_blocks);
+    for (auto& block : output_blocks) {
+        block.resize(num_rows);
+        for (auto& row : block) {
+            row.reserve(r.width);
+        }
     }
-    
+    std::uint32_t col_index = 0;
     if (r.ins_columns.size() > r.target_columns.size()) {
+        
         auto& ins_columns = r.ins_columns[r.target_columns.size()];
         for (std::uint32_t j = 0; j < ins_columns.size() ; j++) { // for each ins column here
             auto& ins_column = ins_columns[j];
+            auto& block = output_blocks[col_index++/block_width];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
-                output_rows[k].push_back(ins_column[k]);                   
+                block[k].push_back(ins_column[k]);                   
             }
         }     
     }
     
     for (std::uint32_t i = 0; i < r.target_columns.size(); i++) { // for each target position        
         auto& column = r.target_columns[i];
+        auto& block = output_blocks[col_index++/block_width];
         for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
-            output_rows[k].push_back(column[k]);                                              
+            block[k].push_back(column[k]);                                              
         }
         auto& ins_columns = r.ins_columns[i];
         for (std::uint32_t j = 0; j < ins_columns.size(); j++) { // for each ins column here
+            auto& block = output_blocks[col_index++/block_width];
             auto& ins_column = ins_columns[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
-                output_rows[k].push_back(ins_column[k]);                   
+                block[k].push_back(ins_column[k]);                   
             }
         }
            
     }
+    std::uint32_t counter = 0;
     //printing
-    for (auto& row: output_rows) {
-        std::cout << row << std::endl;       
+    for (auto& block: output_blocks) {
+        std::cout << counter << std::endl;
+        counter += block_width;
+        for (auto& row: block) {
+            std::cout << row << std::endl;       
+        }
     }
+    
     
     
 }

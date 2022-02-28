@@ -245,7 +245,8 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
     std::uint32_t target_id = target->id;
     
     // find all overlaps with target
-    std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true);  
+    std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
+
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };
@@ -266,7 +267,11 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
             unique_overlaps.push_back(&o);
             last_id = o.rhs_id;
             infos.emplace_back(o.rhs_id, !o.strand);
-            overlapping_reads.push_back(sequences[id_to_pos_index[o.rhs_id]]->InflateData());
+            auto& s = sequences[id_to_pos_index[o.rhs_id]];
+            if (!o.strand) {
+                s->ReverseAndComplement();
+            }
+            overlapping_reads.push_back(s->InflateData());
         }
     }
     auto alignment = pseudoMSA(overlapping_reads, target_string);

@@ -16,7 +16,12 @@ private:
     std::vector<std::unique_ptr<biosoup::NucleicAcid>> sequences;
     ram::MinimizerEngine minimizer_engine;
     std::vector<std::uint32_t> id_to_pos_index;
-    std::uint32_t start_of_phase2 = -1;
+    
+    std::uint32_t start_of_other_phase = -1;
+    
+    std::vector<std::vector<std::unique_ptr<biosoup::NucleicAcid>>> haplotypes_sequences;
+    std::vector<ram::MinimizerEngine> haplotypes_minimizer_engines;
+    std::vector<std::vector<std::uint32_t>> haplotypes_id_to_pos_index;
     
     struct read_info {
         std::uint32_t id;
@@ -50,7 +55,7 @@ private:
                 this->ins_columns = std::move(r.ins_columns);
                 this->inserters = std::move(r.inserters);
                 this->ins_at_least2 = std::move(r.ins_at_least2);
-                this->width = width = r.width;
+                this->width = r.width;
                 this->align_boundaries = std::move(r.align_boundaries);
             }
             return *this;    
@@ -71,6 +76,7 @@ private:
             this->alignment = std::move(r.alignment);
             this->infos = std::move(r.infos);
             this->target_id = r.target_id;
+            return *this;
         };
     };
         
@@ -87,7 +93,7 @@ private:
 public:
     
     FeatureGenerator(const char** sequences_file_paths, std::uint32_t num_threads,
-        std::uint8_t kmer_len, std::uint8_t window_len, double freq);
+        std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
     
     
 };

@@ -41,36 +41,41 @@ constexpr static char DECODER[] = {
 constexpr static std::uint16_t MATRIX_COL_NUM = 256;
 constexpr static std::uint16_t MATRIX_ROW_NUM = 256;
     
-FeatureGenerator::FeatureGenerator(const char* sequences_path, std::uint32_t num_threads, std::uint8_t kmer_len, 
+FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t num_threads, std::uint8_t kmer_len, 
     std::uint8_t window_len, double freq) 
     : minimizer_engine(std::make_shared<thread_pool::ThreadPool>(num_threads), kmer_len, window_len) {
-    std::string seq_path {sequences_path};
+    
     
     auto is_suffix = [] (const std::string& s, const std::string& suff) {
     return s.size() < suff.size() ? false :
         s.compare(s.size() - suff.size(), suff.size(), suff) == 0;
     };
-    
-    if (is_suffix(seq_path, ".fasta")) {
-        try { 
-            auto p = bioparser::Parser<biosoup::NucleicAcid>::Create<bioparser::FastaParser>(seq_path);
-            auto s = p->Parse(-1);
-            sequences.insert(sequences.end(), std::make_move_iterator(s.begin()), std::make_move_iterator(s.end()));
-        } catch (const std::invalid_argument& exception) {
-            std::cerr << exception.what() << std::endl;
-        }            
-              
-    } else if (is_suffix(seq_path, ".fastq")) {
-        try { 
-            auto p = bioparser::Parser<biosoup::NucleicAcid>::Create<bioparser::FastqParser>(seq_path);
-            auto s = p->Parse(-1);
-            sequences.insert(sequences.end(), std::make_move_iterator(s.begin()), std::make_move_iterator(s.end()));
-        } catch (const std::invalid_argument& exception) {
-            std::cerr << exception.what() << std::endl;
-        }            
+    for (std::uint8_t i = 0; i < 2; i++) {
+        const char* path = sequences_paths[i];
+        if (path == nullptr) break;
+        start_of_phase2 = sequences.size();
+        std::string seq_path {path};
+        if (is_suffix(seq_path, ".fasta")) {
+            try { 
+                auto p = bioparser::Parser<biosoup::NucleicAcid>::Create<bioparser::FastaParser>(seq_path);
+                auto s = p->Parse(-1);
+                sequences.insert(sequences.end(), std::make_move_iterator(s.begin()), std::make_move_iterator(s.end()));
+            } catch (const std::invalid_argument& exception) {
+                std::cerr << exception.what() << std::endl;
+            }            
+                  
+        } else if (is_suffix(seq_path, ".fastq")) {
+            try { 
+                auto p = bioparser::Parser<biosoup::NucleicAcid>::Create<bioparser::FastqParser>(seq_path);
+                auto s = p->Parse(-1);
+                sequences.insert(sequences.end(), std::make_move_iterator(s.begin()), std::make_move_iterator(s.end()));
+            } catch (const std::invalid_argument& exception) {
+                std::cerr << exception.what() << std::endl;
+            }            
 
-    } else {
-        throw std::invalid_argument("[align_reads::FeatureGenerator::FeatureGenerator] Error: Invalid sequences file format.");
+        } else {
+            throw std::invalid_argument("[align_reads::FeatureGenerator::FeatureGenerator] Error: Invalid sequences file format.");
+        }
     }
     auto long_seq_first = [] (const std::unique_ptr<biosoup::NucleicAcid>& s1, const std::unique_ptr<biosoup::NucleicAcid>& s2) {
         return s1->inflated_len > s2->inflated_len;        
@@ -246,7 +251,7 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
     
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
-
+    std::cout << "Overlap size " << overlaps.size() << std::endl;
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };
@@ -281,7 +286,7 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
 void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
     std::uint32_t block_width = 100;
     std::vector<std::vector<std::string>> output_blocks;
-    std::uint32_t num_rows = r.target_columns[0].size();
+    std::uint32_t num_rows = r.target_columns[0].size() * 2 -1;
     std::uint32_t num_blocks = r.width / block_width;
     num_blocks = r.width % block_width == 0 ? num_blocks : num_blocks + 1;
     output_blocks.resize(num_blocks);
@@ -299,7 +304,16 @@ void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
             auto& ins_column = ins_columns[j];
             auto& block = output_blocks[col_index++/block_width];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
-                block[k].push_back(ins_column[k]);                   
+                if (k%2==0) { 
+                    block[k].push_back(ins_column[k/2]);
+                    if (k != 0) {
+                        if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
+                            block[k-1].push_back('!');
+                        } else {
+                            block[k-1].push_back(' ');
+                        }
+                    }
+                }
             }
         }     
     }
@@ -308,14 +322,32 @@ void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
         auto& column = r.target_columns[i];
         auto& block = output_blocks[col_index++/block_width];
         for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
-            block[k].push_back(column[k]);                                              
+            if (k%2==0) { 
+                block[k].push_back(column[k/2]);
+                if (k != 0) {
+                    if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
+                        block[k-1].push_back('!');
+                    } else {
+                        block[k-1].push_back(' ');
+                    }
+                }
+            }        
         }
         auto& ins_columns = r.ins_columns[i];
         for (std::uint32_t j = 0; j < ins_columns.size(); j++) { // for each ins column here
             auto& block = output_blocks[col_index++/block_width];
             auto& ins_column = ins_columns[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
-                block[k].push_back(ins_column[k]);                   
+                if (k%2==0) {
+                    block[k].push_back(ins_column[k/2]);
+                    if (k != 0) {
+                        if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
+                            block[k-1].push_back('!');
+                        } else {
+                            block[k-1].push_back(' ');
+                        }
+                    }        
+                } 
             }
         }
            

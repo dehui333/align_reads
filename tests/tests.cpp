@@ -42,7 +42,8 @@ TEST(BasicTests, Parse_Fastq) {
 }
 
 TEST(BasicTests, Construct_Generator_Fasta) {
-    align_reads::FeatureGenerator gen_fasta {reads_fasta_path, 1, 15, 5, 0.001};
+    const char* p[2] = {reads_fasta_path, nullptr};
+    align_reads::FeatureGenerator gen_fasta {p, 1, 15, 5, 0.001};
     EXPECT_EQ(gen_fasta.sequences.size(), 2);
     
     uint32_t last1 = gen_fasta.sequences.size() - 1;
@@ -53,7 +54,8 @@ TEST(BasicTests, Construct_Generator_Fasta) {
 }
 
 TEST(BasicTests, Construct_Generator_Fastq) {
-    align_reads::FeatureGenerator gen_fastq {reads_fastq_path, 3, 15, 10, 0.0002};
+    const char* p[2] = {reads_fastq_path, nullptr};
+    align_reads::FeatureGenerator gen_fastq {p, 3, 15, 10, 0.0002};
     EXPECT_EQ(gen_fastq.sequences.size(), 3165);
     std::uint32_t last_len = 1000000000;
     for (auto& s: gen_fastq.sequences) {
@@ -86,7 +88,13 @@ TEST(ComponentTests, aligning) {
 }
 
 TEST(ComponentTests, align_overlapping) {
-    align_reads::FeatureGenerator gen_fasta {"../test_data/reads_align.fasta", 3, 15, 5, 0.001};
+    const char* p[2] = {"../test_data/reads_align.fasta", nullptr};
+    align_reads::FeatureGenerator gen_fasta {p, 3, 15, 5, 0.001};
     auto result = gen_fasta.align_overlapping(gen_fasta.sequences[0]);
     align_reads::FeatureGenerator::print_align(result.alignment);
+    
+    const char* p2[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
+    align_reads::FeatureGenerator gen_fasta2 {p2, 3, 15, 5, 0.001};
+    auto result2 = gen_fasta2.align_overlapping(gen_fasta2.sequences[0]);
+    align_reads::FeatureGenerator::print_align(result2.alignment);
 }

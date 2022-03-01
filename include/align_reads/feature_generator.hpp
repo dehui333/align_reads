@@ -16,6 +16,7 @@ private:
     std::vector<std::unique_ptr<biosoup::NucleicAcid>> sequences;
     ram::MinimizerEngine minimizer_engine;
     std::vector<std::uint32_t> id_to_pos_index;
+    std::uint32_t start_of_phase2 = -1;
     
     struct read_info {
         std::uint32_t id;
@@ -85,7 +86,7 @@ private:
     static void print_align(align_result& r);
 public:
     
-    FeatureGenerator(const char* sequences_file_path, std::uint32_t num_threads,
+    FeatureGenerator(const char** sequences_file_paths, std::uint32_t num_threads,
         std::uint8_t kmer_len, std::uint8_t window_len, double freq);
     
     

@@ -42,18 +42,18 @@ constexpr static std::uint16_t MATRIX_COL_NUM = 256;
 constexpr static std::uint16_t MATRIX_ROW_NUM = 256;
     
 FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t num_threads, std::uint8_t kmer_len, 
-    std::uint8_t window_len, double freq) 
+    std::uint8_t window_len, double freq, const char** haplotypes_paths) 
     : minimizer_engine(std::make_shared<thread_pool::ThreadPool>(num_threads), kmer_len, window_len) {
     
     
     auto is_suffix = [] (const std::string& s, const std::string& suff) {
     return s.size() < suff.size() ? false :
         s.compare(s.size() - suff.size(), suff.size(), suff) == 0;
-    };
+    };    
     for (std::uint8_t i = 0; i < 2; i++) {
         const char* path = sequences_paths[i];
         if (path == nullptr) break;
-        start_of_phase2 = sequences.size();
+        start_of_other_phase = sequences.size();
         std::string seq_path {path};
         if (is_suffix(seq_path, ".fasta")) {
             try { 
@@ -89,6 +89,42 @@ FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t n
     }
     minimizer_engine.Minimize(sequences.begin(), sequences.end(), true);
     minimizer_engine.Filter(freq);
+    
+    haplotypes_sequences.resize(2);
+    haplotypes_minimizer_engines.resize(2);
+    haplotypes_id_to_pos_index.resize(2);
+    
+    if (haplotypes_paths != nullptr) {
+        for (uint8_t i = 0; i < 2; i++) {
+            const char* path = haplotypes_paths[i];
+            std::string seq_path {path};
+            if (is_suffix(seq_path, ".fasta")) {
+                try { 
+                    auto p = bioparser::Parser<biosoup::NucleicAcid>::Create<bioparser::FastaParser>(seq_path);
+                    auto s = p->Parse(-1);
+                    auto& the_sequences = haplotypes_sequences[i];
+                    the_sequences.insert(the_sequences.end(), std::make_move_iterator(s.begin()), std::make_move_iterator(s.end()));
+                } catch (const std::invalid_argument& exception) {
+                    std::cerr << exception.what() << std::endl;
+                }
+
+            } else {
+                throw std::invalid_argument("[align_reads::FeatureGenerator::FeatureGenerator] Error: Invalid sequences file format.");
+
+            }                           
+        }                              
+    }
+    
+    for (uint8_t i = 0; i < 2; i++) {
+        auto& the_sequences = haplotypes_sequences[i];
+        auto& the_id_to_pos_index = haplotypes_id_to_pos_index[i];
+        the_id_to_pos_index.resize(the_sequences.size());
+        std::uint32_t pos_index = 0;
+        for (auto& s: the_sequences) {
+            the_id_to_pos_index[s->id] = pos_index++; 
+        }       
+    }
+
 }
 
 FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std::string>& queries, std::string& target, bool clip_query) {
@@ -251,7 +287,6 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
     
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
-    std::cout << "Overlap size " << overlaps.size() << std::endl;
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };

@@ -81,20 +81,11 @@ FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t n
         return s1->inflated_len > s2->inflated_len;        
     };
     
-    id_to_pos_index.resize(sequences.size());
-    std::sort(sequences.begin(), sequences.end(), long_seq_first);
-    std::uint32_t pos_index = 0;
-    for (auto& s: sequences) {
-        id_to_pos_index[s->id] = pos_index++; 
-    }
-    minimizer_engine.Minimize(sequences.begin(), sequences.end(), true);
-    minimizer_engine.Filter(freq);
-    
-    haplotypes_sequences.resize(2);
-    haplotypes_minimizer_engines.resize(2);
-    haplotypes_id_to_pos_index.resize(2);
-    
+   
     if (haplotypes_paths != nullptr) {
+        haplotypes_sequences.resize(2);
+        haplotypes_minimizer_engines.resize(2);
+    
         for (uint8_t i = 0; i < 2; i++) {
             const char* path = haplotypes_paths[i];
             std::string seq_path {path};
@@ -104,7 +95,7 @@ FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t n
                     auto s = p->Parse(-1);
                     auto& the_sequences = haplotypes_sequences[i];
                     the_sequences.insert(the_sequences.end(), std::make_move_iterator(s.begin()), std::make_move_iterator(s.end()));
-                } catch (const std::invalid_argument& exception) {
+                } catch (const std::invalid_argument& exception) {                   
                     std::cerr << exception.what() << std::endl;
                 }
 
@@ -112,23 +103,40 @@ FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t n
                 throw std::invalid_argument("[align_reads::FeatureGenerator::FeatureGenerator] Error: Invalid sequences file format.");
 
             }                           
-        }                              
+        }    
+    }
+    std::uint32_t total_seq_num = 0;
+    total_seq_num += sequences.size();
+    for (auto& s: haplotypes_sequences) {
+        total_seq_num += s.size();
+    }
+    id_to_pos_index.resize(total_seq_num);
+    std::sort(sequences.begin(), sequences.end(), long_seq_first);
+    std::uint32_t pos_index = 0;
+    for (auto& s: sequences) {
+        id_to_pos_index[s->id] = pos_index++; 
+    }
+    for (auto& seqs : haplotypes_sequences) {
+        pos_index = 0;
+        for (auto& s: seqs) {
+            id_to_pos_index[s->id] = pos_index++;    
+        }
     }
     
-    for (uint8_t i = 0; i < 2; i++) {
-        auto& the_sequences = haplotypes_sequences[i];
-        auto& the_id_to_pos_index = haplotypes_id_to_pos_index[i];
-        the_id_to_pos_index.resize(the_sequences.size());
-        std::uint32_t pos_index = 0;
-        for (auto& s: the_sequences) {
-            the_id_to_pos_index[s->id] = pos_index++; 
-        }       
-    }
+    minimizer_engine.Minimize(sequences.begin(), sequences.end(), true);
+    minimizer_engine.Filter(freq);
+    for (std::uint8_t i = 0; i < haplotypes_sequences.size(); i++) {
+        auto& seqs = haplotypes_sequences[i];
+        auto& m = haplotypes_minimizer_engines[i];
+        m.Minimize(seqs.begin(), seqs.end(), true);
+        m.Filter(freq);       
+    }    
 
 }
 
-FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std::string>& queries, std::string& target, bool clip_query) {
-
+FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std::string>& queries, std::string& target,
+    bool clip_query, std::uint32_t left_pad, std::uint32_t right_pad) {
+    EdlibEqualityPair additionalEqualities[4] = {{'A', 'X'}, {'C', 'X'}, {'G', 'X'}, {'T', 'X'}};     
     auto mode = clip_query ? EDLIB_MODE_HW : EDLIB_MODE_NW;
     align_result result;
     std::uint8_t for_front_ins = clip_query ? 0 : 1;
@@ -139,7 +147,7 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
         column.resize(queries.size() + 1, '_');
         column[0] = target[i]; // the first item of each row - makes up the first row
     }
-    
+
     // Allowance for insertion columns after each target position
     result.ins_columns.resize(target.size() + for_front_ins);
     
@@ -148,40 +156,74 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
     
     // Initialize the record of who is inserting at each position
     result.inserters.resize(target.size() + for_front_ins);
-    
+ 
+    // padding
+    const char* padded_target_input = target.c_str();
+    std::uint32_t padded_target_size = target.size();
+    std::string padded_target;
+    if (left_pad + right_pad > 0) {       
+        padded_target.reserve(left_pad + target.size() + right_pad);
+        padded_target.append(left_pad, 'X');
+        padded_target.append(target);
+        padded_target.append(right_pad, 'X');    
+        padded_target_input = padded_target.c_str();
+        padded_target_size = padded_target.size();
+    }
     // Aligning queries to target and filling up/adding columns
-    for (std::uint32_t k = 0; k < queries.size(); k++) {
+    for (std::uint32_t k = 0; k < queries.size(); k++) {      
         auto& query = queries[k];
         EdlibAlignResult align = edlibAlign(query.c_str(), query.size(),
-            target.c_str(), target.size(), edlibNewAlignConfig(-1, mode, EDLIB_TASK_PATH, NULL, 0));
+            padded_target_input, padded_target_size, edlibNewAlignConfig(-1, mode, EDLIB_TASK_PATH, additionalEqualities, 2));
+        std::uint32_t t_pointer = align.startLocations[0];
         std::uint32_t next_query_index = 0; // upcoming query position
-        std::uint32_t next_target_index = align.startLocations[0]; // upcoming target position
+        std::uint32_t next_target_index = align.startLocations[0] <= left_pad ? 0 :align.startLocations[0] - left_pad; // upcoming target position
         std::uint32_t next_ins_index = 0; // upcoming ins index for the current segment
-        result.align_boundaries.emplace_back(static_cast<std::uint32_t>(align.startLocations[0]), static_cast<std::uint32_t>(align.endLocations[0]));
+        result.align_boundaries.emplace_back(static_cast<std::uint32_t>(next_target_index),
+            static_cast<std::uint32_t>(align.endLocations[0] >= left_pad + target.size() ? target.size() - 1 : align.endLocations[0] - left_pad ));
         for (int i = 0; i < align.alignmentLength; i++) {
+            
+         
             switch (align.alignment[i]) {
                 case 0: { // match
-                    //place matching query base into column
+                     // if in padded area
+                    if (t_pointer < left_pad) {
+  
+                        t_pointer++;
+                        next_query_index++;
+                        continue;
+                    } else if (t_pointer >= left_pad + target.size()) {
+
+                        i = align.alignmentLength;  
+                        continue;   
+                    }
+ 
+                    //place matching query base from the query into column
+                    
                     result.target_columns[next_target_index++][k+1] = query[next_query_index++]; 
+
                     next_ins_index = 0;
+                    t_pointer++;
                     break;
                 }
                 case 1: { // ins
+                   
                     std::uint32_t ins_columns_index = next_target_index - 1;
                     if (clip_query) {
                         // insertions in the query to the sides of target is ignored
-                        if (next_target_index == align.startLocations[0]) {
+                        if (next_target_index == 0) {
                             next_query_index++;
                             continue;
-                        } else if (next_target_index == align.endLocations[0] + 1) {
+                        } else if (next_target_index == left_pad + target.size()) {
                             i = align.alignmentLength;  // if at ins of the query to the right of target, terminate loop early
                             continue;                       
                         }    
                     } else {
+                        //padding will only be used with clipping 
                         if (next_target_index == 0) {
                             ins_columns_index = target.size();        
                         }
                     }
+                    // Record existence of ins at certain positions
                     if (next_ins_index == 0) {
                         auto& v = result.inserters[ins_columns_index]; 
                         v.push_back(k);
@@ -201,14 +243,27 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
                     break;
                 }
                 case 2: { // del
+                    
                     next_target_index++;
+                    t_pointer++;
                     next_ins_index = 0;
                     break;
                 }
-                case 3: { // mismatch          
+                case 3: { // mismatch
+                   
+                    // if in padded area
+                    if (t_pointer < left_pad) {
+                        t_pointer++;
+                        next_query_index++;
+                        continue;
+                    } else if (t_pointer >= left_pad + target.size()) {
+                        i = align.alignmentLength;  
+                        continue;   
+                    }
                     // place mismatching query base into column
                     result.target_columns[next_target_index++][k+1] = query[next_query_index++]; 
                     next_ins_index = 0;
+                    t_pointer++;
                     break;
                 }
                 default: {
@@ -216,17 +271,17 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
                 }        
             }            
         }
+
         
         edlibFreeAlignResult(align); 
     }
     
-    
     return result;
 }
 
-FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::string>& queries, std::string& target) {
-    
-    align_result result = align_to_target(queries, target, true);
+FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::string>& queries, std::string& target, 
+    std::uint32_t left_pad, std::uint32_t right_pad) {
+    align_result result = align_to_target(queries, target, true, left_pad, right_pad);
     for (auto& ins_pos : result.ins_at_least2) { // for all positions that have at least two queries with insertions, 
         // extract the ins segments there
         std::uint32_t position_index_longest = 0; // index in ins_segments
@@ -275,12 +330,12 @@ FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::stri
             }            
         }           
     }
+
     
     return result;
 }
 
-FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
-    
+FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& target) {
     // get target string 
     std::string target_string = target->InflateData();      
     std::uint32_t target_id = target->id;
@@ -291,30 +346,135 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
         return o1.rhs_id < o2.rhs_id;        
     };
     
-    // sort overlaps by id
-    std::vector<biosoup::Overlap*> unique_overlaps;  
+    // sort overlaps by id  
     std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
     
     // Fill up infos and overlapping reads 
-    std::vector<read_info> infos;
-    infos.reserve(overlaps.size());
-    std::vector<std::string> overlapping_reads;
-    overlapping_reads.reserve(overlaps.size());
+    std::vector<seq_info> infos;
+    infos.reserve(overlaps.size() + 2);
+    std::vector<std::string> overlapping_seqs;
+    overlapping_seqs.reserve(overlaps.size() + 2);
     
     std::uint64_t last_id = -1;
     for (auto& o : overlaps) {
         if (o.rhs_id != last_id) {
-            unique_overlaps.push_back(&o);
             last_id = o.rhs_id;
             infos.emplace_back(o.rhs_id, !o.strand);
             auto& s = sequences[id_to_pos_index[o.rhs_id]];
             if (!o.strand) {
                 s->ReverseAndComplement();
             }
+            overlapping_seqs.push_back(s->InflateData());
+        }
+    }
+    for (std::uint8_t k = 0; k < 2; k++) {
+        // Find overlapping haplotype sequences
+        // find all overlaps with target
+        overlaps = haplotypes_minimizer_engines[k].Map(target, true, false, true); 
+        
+        // sort overlaps by id  
+        std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
+        
+        // Fill up infos and overlapping reads 
+        if (overlaps.size() == 1) {
+            auto& o = overlaps[0];
+            auto id = o.rhs_id;
+            auto& s = sequences[id_to_pos_index[id]];
+            if (!o.strand) {
+                s->ReverseAndComplement();
+            }
+            overlapping_seqs.push_back(s->InflateData());
+            infos.emplace_back(id, !o.strand);
+            
+        } else {
+            last_id = -1;
+            std::vector<biosoup::Overlap*> unique_overlaps;
+            unique_overlaps.reserve(overlaps.size());
+            for (auto& o : overlaps) {
+                if (o.rhs_id != last_id) {
+                    last_id = o.rhs_id;
+                    unique_overlaps.push_back(&o);                
+                }
+            }
+            std::uint32_t best_id = -1;
+            bool best_is_reverse_complement = false;
+            std::string best_contig;
+            std::uint32_t best_dist = -1;
+            for (auto& p: unique_overlaps) {
+                auto id = p->rhs_id;
+                auto& s = sequences[id_to_pos_index[id]];
+                auto strand = p->strand;
+                if (!strand) {
+                    s->ReverseAndComplement();
+                }
+                auto contig = s->InflateData();
+                EdlibAlignResult result = edlibAlign(target_string.c_str(), target_string.size(),
+                    contig.c_str(), contig.size(), edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
+                std::uint32_t dist = result.editDistance;
+                edlibFreeAlignResult(result);
+                if (dist < best_dist) {
+                    best_id = id;
+                    best_is_reverse_complement = !strand;
+                    best_dist = dist;
+                    best_contig = contig;
+                }
+            }
+            overlapping_seqs.push_back(std::move(best_contig));
+            infos.emplace_back(best_id, best_is_reverse_complement);
+                
+        }         
+    }
+    auto alignment = pseudoMSA(overlapping_seqs, target_string);
+    return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
+       
+}
+
+FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
+
+    // get target string 
+    std::string target_string = target->InflateData();      
+    std::uint32_t target_id = target->id;
+    
+    // find all overlaps with target
+    std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
+    auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
+        return o1.rhs_id < o2.rhs_id;        
+    };
+    
+    // sort overlaps by id  
+    std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
+    // Fill up infos and overlapping reads 
+    std::vector<seq_info> infos;
+    infos.reserve(overlaps.size());
+    std::vector<std::string> overlapping_reads;
+    overlapping_reads.reserve(overlaps.size());
+    
+    std::uint64_t last_id = -1;
+    std::uint32_t largest_left_pad = 0;
+    std::uint32_t largest_right_pad = 0;
+    for (auto& o : overlaps) {
+        if (o.rhs_id != last_id) {
+            last_id = o.rhs_id;
+            infos.emplace_back(o.rhs_id, !o.strand);
+            auto& s = sequences[id_to_pos_index[o.rhs_id]];
+            std::uint32_t t_begin = o.lhs_begin;
+            std::uint32_t t_end = o.lhs_end;
+            std::uint32_t q_begin = o.rhs_begin;
+            std::uint32_t q_end = o.rhs_end;
+            if (!o.strand) {
+                s->ReverseAndComplement();
+                q_end = s->inflated_len - o.rhs_begin;
+                q_begin = s->inflated_len - o.rhs_end;
+            }
+            std::uint32_t left_pad = q_begin > t_begin ? q_begin - t_begin : 0;
+            std::uint32_t right_pad = (s->inflated_len - q_end) > (target_string.size() - t_end) ? (s->inflated_len - q_end) - (target_string.size() - t_end) : 0;  
+            if (left_pad > largest_left_pad) largest_left_pad = left_pad;
+            if (right_pad > largest_right_pad) largest_right_pad = right_pad;
             overlapping_reads.push_back(s->InflateData());
         }
     }
-    auto alignment = pseudoMSA(overlapping_reads, target_string);
+    
+    auto alignment = pseudoMSA(overlapping_reads, target_string, largest_left_pad, largest_right_pad);    
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
 }
 
@@ -395,6 +555,7 @@ void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
         for (auto& row: block) {
             std::cout << row << std::endl;       
         }
+        std::cout << std::endl;
     }
     
     

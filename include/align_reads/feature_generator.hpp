@@ -21,12 +21,11 @@ private:
     
     std::vector<std::vector<std::unique_ptr<biosoup::NucleicAcid>>> haplotypes_sequences;
     std::vector<ram::MinimizerEngine> haplotypes_minimizer_engines;
-    std::vector<std::vector<std::uint32_t>> haplotypes_id_to_pos_index;
     
-    struct read_info {
+    struct seq_info {
         std::uint32_t id;
         bool reverse_complement;
-        read_info(std::uint32_t id, bool reverse_comp) : id(id), reverse_complement(reverse_comp) {};
+        seq_info(std::uint32_t id, bool reverse_comp) : id(id), reverse_complement(reverse_comp) {};
     };
     
     struct align_boundary {
@@ -40,7 +39,7 @@ private:
         // which target position? -> which ins at that position? -> which row?
         std::vector<std::vector<std::vector<char>>> ins_columns;
         std::uint32_t width;
-        std::vector<std::vector<std::uint32_t>> inserters; // contains positional index of queries
+        std::vector<std::vector<std::uint32_t>> inserters; // for each position, contains positional index of queries that has ins there
         std::vector<std::uint32_t> ins_at_least2;
         std::vector<align_boundary> align_boundaries;
         
@@ -64,11 +63,11 @@ private:
     
     struct align_overlapping_result {
         align_result alignment;
-        std::vector<read_info> infos;
+        std::vector<seq_info> infos;
         std::uint32_t target_id;
         
         align_overlapping_result() = default;
-        align_overlapping_result(align_result&& alignment, std::vector<read_info>&& infos, std::uint32_t& target_id) 
+        align_overlapping_result(align_result&& alignment, std::vector<seq_info>&& infos, std::uint32_t& target_id) 
             : alignment(std::move(alignment)), infos(std::move(infos)), target_id(target_id) {};
         align_overlapping_result(align_overlapping_result&& r) : alignment(std::move(r.alignment)), infos(std::move(r.infos)),
             target_id(r.target_id) {};
@@ -83,11 +82,15 @@ private:
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
+    align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
+    
     // align queries to target
-    static align_result align_to_target(std::vector<std::string>& queries, std::string& target, bool clip_query);
+    static align_result align_to_target(std::vector<std::string>& queries, std::string& target,
+        bool clip_query, std::uint32_t left_pad=0, std::uint32_t right_pad=0);
     
     // align queries to target, and also try to align the ins segments
-    static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target);
+    static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
+        std::uint32_t left_pad = 0, std::uint32_t right_pad = 0);
     
     static void print_align(align_result& r);
 public:

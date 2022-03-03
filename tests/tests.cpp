@@ -9,7 +9,7 @@
 const char* reads_fastq_path = "../test_data/reads.fastq";
 const char* reads_fasta_path = "../test_data/reads.fasta";
 const char* overlap_paf_path = "../test_data/overlap.paf";
-
+/*
 // Demonstrate some basic assertions.
 TEST(TrivialTests, BasicAssertions) {
     // Expect two strings not to be equal.
@@ -84,7 +84,7 @@ TEST(ComponentTests, aligning) {
     std::string target = "GACTAGGAC";
     std::vector<std::string> queries = {"AAGACTTCACGGTACAA", "GACTCAGGGAC"};
     auto result = align_reads::FeatureGenerator::pseudoMSA(queries, target);    
-    //align_reads::FeatureGenerator::print_align(result);
+    align_reads::FeatureGenerator::print_align(result);
 }
 
 TEST(ComponentTests, align_overlapping) {
@@ -97,4 +97,19 @@ TEST(ComponentTests, align_overlapping) {
     align_reads::FeatureGenerator gen_fasta2 {p2, 3, 15, 5, 0.001};
     auto result2 = gen_fasta2.align_overlapping(gen_fasta2.sequences[0]);
     align_reads::FeatureGenerator::print_align(result2.alignment);
+}
+*/
+TEST(ComponentTests, all_inputs) {
+    const char* reads_path[2] = {"../test_data/fake_reads0.fasta", "../test_data/fake_reads1.fasta"};
+    const char* haplotypes_path[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
+    align_reads::FeatureGenerator gen {reads_path, 3, 15, 5, 0.001, haplotypes_path};
+    EXPECT_EQ(gen.start_of_other_phase, 3);
+    EXPECT_EQ(gen.id_to_pos_index[gen.haplotypes_sequences[0][0]->id], 0);
+    EXPECT_EQ(gen.id_to_pos_index[gen.haplotypes_sequences[1][0]->id], 0);
+    EXPECT_EQ(gen.haplotypes_sequences[0].size(), 1);
+    EXPECT_EQ(gen.haplotypes_sequences[1].size(), 1);
+    
+    auto result = gen.align_overlapping(gen.sequences[0]);
+    align_reads::FeatureGenerator::print_align(result.alignment);
+
 }

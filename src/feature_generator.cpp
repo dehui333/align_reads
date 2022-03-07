@@ -135,7 +135,8 @@ FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t n
 }
 
 FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std::string>& queries, std::string& target,
-    bool clip_query, std::uint32_t left_pad, std::uint32_t right_pad) {
+    bool clip_query, std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads) {
+    
     EdlibEqualityPair additionalEqualities[4] = {{'A', 'X'}, {'C', 'X'}, {'G', 'X'}, {'T', 'X'}};     
     auto mode = clip_query ? EDLIB_MODE_HW : EDLIB_MODE_NW;
     align_result result;
@@ -157,23 +158,43 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
     // Initialize the record of who is inserting at each position
     result.inserters.resize(target.size() + for_front_ins);
  
-    // padding
-    const char* padded_target_input = target.c_str();
-    std::uint32_t padded_target_size = target.size();
-    std::string padded_target;
-    if (left_pad + right_pad > 0) {       
-        padded_target.reserve(left_pad + target.size() + right_pad);
-        padded_target.append(left_pad, 'X');
-        padded_target.append(target);
-        padded_target.append(right_pad, 'X');    
-        padded_target_input = padded_target.c_str();
-        padded_target_size = padded_target.size();
-    }
+    
     // Aligning queries to target and filling up/adding columns
     for (std::uint32_t k = 0; k < queries.size(); k++) {      
+    
+        const char* padded_target_input = target.c_str();
+        std::uint32_t padded_target_size = target.size();
+        std::uint32_t left_pad = 0;
+        std::uint32_t right_pad = 0;
+        std::string padded_target;
+        std::uint8_t eq_count = 0;
+        if (pads != nullptr && !pads->empty()) {
+            // padding
+            std::pair<std::uint32_t, std::uint32_t>& p = pads->at(k); 
+            left_pad = p.first;
+            right_pad = p.second;
+            
+            
+            if (left_pad + right_pad > 0) {
+                padded_target.clear();
+                padded_target.reserve(left_pad + target.size() + right_pad);
+                padded_target.append(left_pad, 'X');
+                padded_target.append(target);
+                padded_target.append(right_pad, 'X');    
+                padded_target_input = padded_target.c_str();
+                padded_target_size = padded_target.size();
+                eq_count = 4;
+            } else {
+                padded_target_input = target.c_str();
+                padded_target_size = target.size();
+                eq_count = 0;
+            }                
+        }
+        
+
         auto& query = queries[k];
         EdlibAlignResult align = edlibAlign(query.c_str(), query.size(),
-            padded_target_input, padded_target_size, edlibNewAlignConfig(-1, mode, EDLIB_TASK_PATH, additionalEqualities, 2));
+            padded_target_input, padded_target_size, edlibNewAlignConfig(-1, mode, EDLIB_TASK_PATH, additionalEqualities, eq_count));
         std::uint32_t t_pointer = align.startLocations[0];
         std::uint32_t next_query_index = 0; // upcoming query position
         std::uint32_t next_target_index = align.startLocations[0] <= left_pad ? 0 :align.startLocations[0] - left_pad; // upcoming target position
@@ -280,8 +301,8 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
 }
 
 FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::string>& queries, std::string& target, 
-    std::uint32_t left_pad, std::uint32_t right_pad) {
-    align_result result = align_to_target(queries, target, true, left_pad, right_pad);
+    std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads) {
+    align_result result = align_to_target(queries, target, true, &pads);
     for (auto& ins_pos : result.ins_at_least2) { // for all positions that have at least two queries with insertions, 
         // extract the ins segments there
         std::uint32_t position_index_longest = 0; // index in ins_segments
@@ -334,7 +355,7 @@ FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::stri
     
     return result;
 }
-
+/*
 FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& target) {
     // get target string 
     std::string target_string = target->InflateData();      
@@ -428,7 +449,7 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping_p
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
        
 }
-
+*/
 FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
 
     // get target string 
@@ -448,10 +469,10 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
     infos.reserve(overlaps.size());
     std::vector<std::string> overlapping_reads;
     overlapping_reads.reserve(overlaps.size());
-    
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> pads;
+    pads.reserve(overlaps.size());
     std::uint64_t last_id = -1;
-    std::uint32_t largest_left_pad = 0;
-    std::uint32_t largest_right_pad = 0;
+
     for (auto& o : overlaps) {
         if (o.rhs_id != last_id) {
             last_id = o.rhs_id;
@@ -468,13 +489,13 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
             }
             std::uint32_t left_pad = q_begin > t_begin ? q_begin - t_begin : 0;
             std::uint32_t right_pad = (s->inflated_len - q_end) > (target_string.size() - t_end) ? (s->inflated_len - q_end) - (target_string.size() - t_end) : 0;  
-            if (left_pad > largest_left_pad) largest_left_pad = left_pad;
-            if (right_pad > largest_right_pad) largest_right_pad = right_pad;
+            pads.emplace_back(left_pad, right_pad);
             overlapping_reads.push_back(s->InflateData());
+
         }
     }
     
-    auto alignment = pseudoMSA(overlapping_reads, target_string, largest_left_pad, largest_right_pad);    
+    auto alignment = pseudoMSA(overlapping_reads, target_string, pads);    
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
 }
 

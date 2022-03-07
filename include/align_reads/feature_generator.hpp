@@ -82,15 +82,15 @@ private:
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
-    align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
+    //align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
     // align queries to target
     static align_result align_to_target(std::vector<std::string>& queries, std::string& target,
-        bool clip_query, std::uint32_t left_pad=0, std::uint32_t right_pad=0);
+        bool clip_query, std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads=nullptr);
     
     // align queries to target, and also try to align the ins segments
     static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
-        std::uint32_t left_pad = 0, std::uint32_t right_pad = 0);
+        std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads);
     
     static void print_align(align_result& r);
 public:

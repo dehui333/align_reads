@@ -114,3 +114,14 @@ TEST(ComponentTests, all_inputs) {
     align_reads::FeatureGenerator::print_align(result.alignment);
 
 }
+
+TEST(ComponentTests, align_hap) {
+    const char* reads_path[2] = {"../test_data/fake_reads0.fasta", "../test_data/fake_reads1.fasta"};
+    const char* haplotypes_path[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
+    align_reads::FeatureGenerator gen {reads_path, 3, 15, 5, 0.001, haplotypes_path};
+    
+    
+    auto result = gen.align_overlapping_plus_haplotypes(gen.sequences[0]);
+    align_reads::FeatureGenerator::print_align(result.alignment);
+    
+}

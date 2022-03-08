@@ -355,9 +355,9 @@ FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::stri
     
     return result;
 }
-/*
+
 FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& target) {
-    // get target string 
+     // get target string 
     std::string target_string = target->InflateData();      
     std::uint32_t target_id = target->id;
     
@@ -369,87 +369,76 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping_p
     
     // sort overlaps by id  
     std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
-    
     // Fill up infos and overlapping reads 
     std::vector<seq_info> infos;
     infos.reserve(overlaps.size() + 2);
     std::vector<std::string> overlapping_seqs;
     overlapping_seqs.reserve(overlaps.size() + 2);
-    
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> pads;
+    pads.reserve(overlaps.size() + 2);
     std::uint64_t last_id = -1;
+
     for (auto& o : overlaps) {
         if (o.rhs_id != last_id) {
             last_id = o.rhs_id;
             infos.emplace_back(o.rhs_id, !o.strand);
             auto& s = sequences[id_to_pos_index[o.rhs_id]];
+            std::uint32_t t_begin = o.lhs_begin;
+            std::uint32_t t_end = o.lhs_end;
+            std::uint32_t q_begin = o.rhs_begin;
+            std::uint32_t q_end = o.rhs_end;
             if (!o.strand) {
                 s->ReverseAndComplement();
+                q_end = s->inflated_len - o.rhs_begin;
+                q_begin = s->inflated_len - o.rhs_end;
             }
+            std::uint32_t left_pad = q_begin > t_begin ? q_begin - t_begin : 0;
+            std::uint32_t right_pad = (s->inflated_len - q_end) > (target_string.size() - t_end) ? (s->inflated_len - q_end) - (target_string.size() - t_end) : 0;  
+            pads.emplace_back(left_pad, right_pad);
             overlapping_seqs.push_back(s->InflateData());
+            s->ReverseAndComplement();
+
         }
     }
-    for (std::uint8_t k = 0; k < 2; k++) {
-        // Find overlapping haplotype sequences
-        // find all overlaps with target
-        overlaps = haplotypes_minimizer_engines[k].Map(target, true, false, true); 
+    
+    for (std::uint8_t i = 0; i < 2; i++) {
+        // find overlap with each haplotype
+        auto& minimizers = haplotypes_minimizer_engines[i];
+        std::vector<biosoup::Overlap> overlaps = minimizers.Map(target, true, false, true);
+        std::uint32_t best_index = 0;
+        std::uint32_t best_score = 0;
+        if (overlaps.size() > 1) {
+            for (std::uint32_t j = 0; j < overlaps.size(); j++) {
+                auto score = overlaps[j].score;
+                if (score > best_score) {
+                    best_score = score;
+                    best_index = j;
+                }
+            }                
+        }
         
-        // sort overlaps by id  
-        std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
         
-        // Fill up infos and overlapping reads 
-        if (overlaps.size() == 1) {
-            auto& o = overlaps[0];
-            auto id = o.rhs_id;
-            auto& s = sequences[id_to_pos_index[id]];
-            if (!o.strand) {
-                s->ReverseAndComplement();
-            }
-            overlapping_seqs.push_back(s->InflateData());
-            infos.emplace_back(id, !o.strand);
-            
-        } else {
-            last_id = -1;
-            std::vector<biosoup::Overlap*> unique_overlaps;
-            unique_overlaps.reserve(overlaps.size());
-            for (auto& o : overlaps) {
-                if (o.rhs_id != last_id) {
-                    last_id = o.rhs_id;
-                    unique_overlaps.push_back(&o);                
-                }
-            }
-            std::uint32_t best_id = -1;
-            bool best_is_reverse_complement = false;
-            std::string best_contig;
-            std::uint32_t best_dist = -1;
-            for (auto& p: unique_overlaps) {
-                auto id = p->rhs_id;
-                auto& s = sequences[id_to_pos_index[id]];
-                auto strand = p->strand;
-                if (!strand) {
-                    s->ReverseAndComplement();
-                }
-                auto contig = s->InflateData();
-                EdlibAlignResult result = edlibAlign(target_string.c_str(), target_string.size(),
-                    contig.c_str(), contig.size(), edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
-                std::uint32_t dist = result.editDistance;
-                edlibFreeAlignResult(result);
-                if (dist < best_dist) {
-                    best_id = id;
-                    best_is_reverse_complement = !strand;
-                    best_dist = dist;
-                    best_contig = contig;
-                }
-            }
-            overlapping_seqs.push_back(std::move(best_contig));
-            infos.emplace_back(best_id, best_is_reverse_complement);
-                
-        }         
+        auto& best_match = overlaps[best_index];
+        std::uint32_t best_match_id = best_match.rhs_id;
+        bool best_match_strand = best_match.strand;
+        
+        std::uint32_t adjusted_begin = best_match.rhs_begin - best_match.lhs_begin;
+        std::uint32_t adjusted_end = target_string.size() - best_match.lhs_end + best_match.rhs_end;
+        auto& seqs = haplotypes_sequences[i];
+        auto& seq = seqs[id_to_pos_index[best_match_id]];
+        if (!best_match_strand) {
+            seq->ReverseAndComplement();
+        }
+        std::string hap_string = seq->InflateData(adjusted_begin, adjusted_end - adjusted_begin);
+        pads.emplace_back(0, 0);
+        overlapping_seqs.push_back(std::move(hap_string));
+        seq->ReverseAndComplement();                
     }
-    auto alignment = pseudoMSA(overlapping_seqs, target_string);
-    return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
-       
+    
+    auto alignment = pseudoMSA(overlapping_seqs, target_string, pads);    
+    return align_overlapping_result(std::move(alignment), std::move(infos), target_id);        
 }
-*/
+
 FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
 
     // get target string 
@@ -491,6 +480,7 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
             std::uint32_t right_pad = (s->inflated_len - q_end) > (target_string.size() - t_end) ? (s->inflated_len - q_end) - (target_string.size() - t_end) : 0;  
             pads.emplace_back(left_pad, right_pad);
             overlapping_reads.push_back(s->InflateData());
+            s->ReverseAndComplement();
 
         }
     }

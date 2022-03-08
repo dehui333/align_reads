@@ -82,7 +82,7 @@ private:
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
-    //align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
+    align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
     // align queries to target
     static align_result align_to_target(std::vector<std::string>& queries, std::string& target,

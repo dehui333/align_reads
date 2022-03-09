@@ -10,7 +10,8 @@
 
 namespace align_reads {
 
-class FeatureGenerator {
+
+class Aligner {
 
 private:    
     std::vector<std::unique_ptr<biosoup::NucleicAcid>> sequences;
@@ -21,6 +22,8 @@ private:
     
     std::vector<std::vector<std::unique_ptr<biosoup::NucleicAcid>>> haplotypes_sequences;
     std::vector<ram::MinimizerEngine> haplotypes_minimizer_engines;
+    
+    
     
     struct seq_info {
         std::uint32_t id;
@@ -38,10 +41,10 @@ private:
         std::vector<std::vector<char>> target_columns;
         // which target position? -> which ins at that position? -> which row?
         std::vector<std::vector<std::vector<char>>> ins_columns;
-        std::uint32_t width;
+        std::uint32_t width; 
         std::vector<std::vector<std::uint32_t>> inserters; // for each position, contains positional index of queries that has ins there
-        std::vector<std::uint32_t> ins_at_least2;
-        std::vector<align_boundary> align_boundaries;
+        std::vector<std::uint32_t> ins_at_least2; // target positions where there are at least 2 reads with ins
+        std::vector<align_boundary> align_boundaries; // where do the others align to the top sequence (target)
         
         align_result() = default;
         align_result(align_result&& r) : target_columns(std::move(r.target_columns)), ins_columns(std::move(r.ins_columns)), 
@@ -60,8 +63,9 @@ private:
             return *this;    
         };
     };
-    
+
     struct align_overlapping_result {
+        
         align_result alignment;
         std::vector<seq_info> infos;
         std::uint32_t target_id;
@@ -77,10 +81,11 @@ private:
             this->target_id = r.target_id;
             return *this;
         };
-    };
         
+            
+    };
+
     
-    align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
     align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
@@ -88,16 +93,22 @@ private:
     static align_result align_to_target(std::vector<std::string>& queries, std::string& target,
         bool clip_query, std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads=nullptr);
     
+    align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
+    
+    static void print_align(align_result& r);
+    
     // align queries to target, and also try to align the ins segments
     static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
         std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads);
     
-    static void print_align(align_result& r);
+    
 public:
     
-    FeatureGenerator(const char** sequences_file_paths, std::uint32_t num_threads,
-        std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
     
+    Aligner(const char** sequences_file_paths, std::uint32_t num_threads,
+        std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
+     
+
     
 };
 

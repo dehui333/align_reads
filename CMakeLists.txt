@@ -6,8 +6,10 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+
+
 include_directories(include edlib/include)
-add_library(align_reads SHARED src/feature_generator.cpp edlib/src/edlib.cpp)
+add_library(align_reads STATIC src/aligner.cpp edlib/src/edlib.cpp)
 
 # bioparser
 if (NOT TARGET bioparser)
@@ -43,3 +45,4 @@ target_link_libraries(
 
 include(GoogleTest)
 gtest_discover_tests(tests)
+

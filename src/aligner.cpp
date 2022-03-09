@@ -7,7 +7,7 @@
 #include <unordered_set>
 #include <utility>
 
-#include "align_reads/feature_generator.hpp"
+#include "align_reads/aligner.hpp"
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "biosoup/nucleic_acid.hpp"
@@ -41,7 +41,7 @@ constexpr static char DECODER[] = {
 constexpr static std::uint16_t MATRIX_COL_NUM = 256;
 constexpr static std::uint16_t MATRIX_ROW_NUM = 256;
     
-FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t num_threads, std::uint8_t kmer_len, 
+Aligner::Aligner(const char** sequences_paths, std::uint32_t num_threads, std::uint8_t kmer_len, 
     std::uint8_t window_len, double freq, const char** haplotypes_paths) 
     : minimizer_engine(std::make_shared<thread_pool::ThreadPool>(num_threads), kmer_len, window_len) {
     
@@ -74,7 +74,7 @@ FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t n
             }            
 
         } else {
-            throw std::invalid_argument("[align_reads::FeatureGenerator::FeatureGenerator] Error: Invalid sequences file format.");
+            throw std::invalid_argument("[align_reads::Aligner::Aligner] Error: Invalid sequences file format.");
         }
     }
     auto long_seq_first = [] (const std::unique_ptr<biosoup::NucleicAcid>& s1, const std::unique_ptr<biosoup::NucleicAcid>& s2) {
@@ -100,7 +100,7 @@ FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t n
                 }
 
             } else {
-                throw std::invalid_argument("[align_reads::FeatureGenerator::FeatureGenerator] Error: Invalid sequences file format.");
+                throw std::invalid_argument("[align_reads::Aligner::Aligner] Error: Invalid sequences file format.");
 
             }                           
         }    
@@ -134,7 +134,7 @@ FeatureGenerator::FeatureGenerator(const char** sequences_paths, std::uint32_t n
 
 }
 
-FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std::string>& queries, std::string& target,
+Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries, std::string& target,
     bool clip_query, std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads) {
     
     EdlibEqualityPair additionalEqualities[4] = {{'A', 'X'}, {'C', 'X'}, {'G', 'X'}, {'T', 'X'}};     
@@ -300,7 +300,7 @@ FeatureGenerator::align_result FeatureGenerator::align_to_target(std::vector<std
     return result;
 }
 
-FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::string>& queries, std::string& target, 
+Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std::string& target, 
     std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads) {
     align_result result = align_to_target(queries, target, true, &pads);
     for (auto& ins_pos : result.ins_at_least2) { // for all positions that have at least two queries with insertions, 
@@ -356,7 +356,7 @@ FeatureGenerator::align_result FeatureGenerator::pseudoMSA(std::vector<std::stri
     return result;
 }
 
-FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& target) {
+Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& target) {
      // get target string 
     std::string target_string = target->InflateData();      
     std::uint32_t target_id = target->id;
@@ -439,7 +439,7 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping_p
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);        
 }
 
-FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
+Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
 
     // get target string 
     std::string target_string = target->InflateData();      
@@ -489,7 +489,7 @@ FeatureGenerator::align_overlapping_result FeatureGenerator::align_overlapping(s
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
 }
 
-void FeatureGenerator::print_align(FeatureGenerator::align_result& r) {
+void Aligner::print_align(Aligner::align_result& r) {
     std::uint32_t block_width = 100;
     std::vector<std::vector<std::string>> output_blocks;
     std::uint32_t num_rows = r.target_columns[0].size() * 2 -1;

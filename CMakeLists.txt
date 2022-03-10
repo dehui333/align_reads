@@ -63,7 +63,6 @@ target_link_libraries(
   tests
   gtest_main
   align_reads
-  ${pylib}
 )
 
 include(GoogleTest)

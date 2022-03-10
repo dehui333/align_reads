@@ -10,6 +10,7 @@ align_reads_venv/bin/activate:
 libalign_reads.a: build/libalign_reads.a venv
 
 build/libalign_reads.a:
-	. align_reads_venv/bin/activate; cmake -S . -B build/; cmake --build build/
+	. align_reads_venv/bin/activate; cmake -S . -B build/
+	cmake --build build/
 
 	

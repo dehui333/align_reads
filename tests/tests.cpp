@@ -1,7 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <Python.h>
+
+#define PY_ARRAY_UNIQUE_SYMBOL gen_ARRAY_API
+#include "numpy/arrayobject.h"
+
 #define private public
-#include "../src/aligner.cpp"
+#include "../include/align_reads/aligner.hpp"
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "edlib.h"
@@ -10,8 +15,15 @@ const char* reads_fastq_path = "../test_data/reads.fastq";
 const char* reads_fasta_path = "../test_data/reads.fasta";
 const char* overlap_paf_path = "../test_data/overlap.paf";
 
+static void* init(void) {
+    Py_Initialize();
+    import_array();
+    return NULL;
+}
+
 // Demonstrate some basic assertions.
 TEST(TrivialTests, BasicAssertions) {
+    init();
     // Expect two strings not to be equal.
     EXPECT_STRNE("hello", "world");
     // Expect equality.
@@ -64,20 +76,6 @@ TEST(BasicTests, Construct_Generator_Fastq) {
     }
     std::uint32_t expected_pos_123 = gen_fastq.id_to_pos_index[123];
     EXPECT_EQ(gen_fastq.sequences[expected_pos_123]->id, 123);
-}
-
-TEST(ComponentTests, Encoder_Decoder) {
-    EXPECT_EQ(align_reads::ENCODER['A'], 0);
-    EXPECT_EQ(align_reads::ENCODER['C'], 1);
-    EXPECT_EQ(align_reads::ENCODER['G'], 2);
-    EXPECT_EQ(align_reads::ENCODER['T'], 3);
-    EXPECT_EQ(align_reads::ENCODER['_'], 4);
-    
-    EXPECT_EQ(align_reads::DECODER[0], 'A');
-    EXPECT_EQ(align_reads::DECODER[1], 'C');
-    EXPECT_EQ(align_reads::DECODER[2], 'G');
-    EXPECT_EQ(align_reads::DECODER[3], 'T');
-    EXPECT_EQ(align_reads::DECODER[4], '_');
 }
 
 TEST(ComponentTests, aligning) {

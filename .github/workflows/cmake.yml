@@ -32,7 +32,7 @@ jobs:
         # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
         run: |
           make venv 
-          . align_reads_venv/bin/activate; cmake -S . -B build; stat /usr/lib/libpython3.6m.so.1.0; cmake --build build
+          . align_reads_venv/bin/activate; cmake -S . -B build; stat /usr/lib/libpython3.6m.a; cmake --build build
         env:
           CXX: ${{ matrix.compiler }}
 

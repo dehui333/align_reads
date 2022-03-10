@@ -30,9 +30,7 @@ jobs:
       - name: Make
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
         # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-        run: |
-          make venv 
-          . align_reads_venv/bin/activate; cmake -S . -B build; stat /usr/lib/libpython3.6m.a; cmake --build build
+        run: make
         env:
           CXX: ${{ matrix.compiler }}
 

@@ -60,9 +60,9 @@ endif()
 #message(STATUS "Python version: ${pyversion}")
 #message(STATUS "Python include dir: ${pyinc}")
 #message(STATUS "Python library dir: ${pylibdir}")
-#message(STATUS "Numpy include dir: ${numpyinc}")
+message(STATUS "Numpy include dir: ${numpyinc}")
 
-include_directories(include edlib/include ${pyinc} ${using_pyinc})
+include_directories(include edlib/include ${numpyinc} ${using_pyinc})
 add_library(align_reads STATIC src/aligner.cpp edlib/src/edlib.cpp)
 
 

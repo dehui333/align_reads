@@ -7,17 +7,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 execute_process (
-    COMMAND python3 -c "from sysconfig import get_config_var;print(get_config_var('LIBDIR'), end='/');print(get_config_var('INSTSONAME'), end='')"
+    COMMAND . align_reads_venv/bin/activate;python3 -c "from sysconfig import get_config_var;print(get_config_var('LIBDIR'), end='/');print(get_config_var('INSTSONAME'), end='')"
     OUTPUT_VARIABLE pylib
 )
 
 execute_process (
-    COMMAND python3 -c "from sysconfig import get_config_var;print(get_config_var('CONFINCLUDEPY'), end='')"
+    COMMAND . align_reads_venv/bin/activate;python3 -c "from sysconfig import get_config_var;print(get_config_var('CONFINCLUDEPY'), end='')"
     OUTPUT_VARIABLE pyinc
 )
 
 execute_process (
-    COMMAND python3 -c "import numpy as np;print(np.get_include(), end='')"
+    COMMAND . align_reads_venv/bin/activate;python3 -c "import numpy as np;print(np.get_include(), end='')"
     OUTPUT_VARIABLE numpyinc
 )
 

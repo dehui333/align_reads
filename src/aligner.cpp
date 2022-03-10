@@ -20,6 +20,20 @@ std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
 namespace align_reads {
 
+PyObject* Aligner::test() {
+    npy_intp dims[2];
+    dims[0] = 2;
+    dims[1] = 2;
+    auto X = PyArray_SimpleNew(2, dims, NPY_UINT8);
+    uint8_t* value_ptr;
+    for (int i =0; i < 2; i++) {
+        for (int j =0; j < 2; j++) {
+             value_ptr = (uint8_t*) PyArray_GETPTR2(X, i, j);
+             *value_ptr = i + j;
+        }
+    }
+    return X;
+}
 constexpr static std::uint8_t ENCODER[] = {
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255,    
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255,

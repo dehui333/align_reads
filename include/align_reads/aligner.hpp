@@ -1,6 +1,13 @@
 #ifndef ALIGN_READS_FEATURE_GENERATOR_HPP_
 #define ALIGN_READS_FEATURE_GENERATOR_HPP_
 
+#include <Python.h>
+//extern "C" {
+#define NO_IMPORT_ARRAY
+#define PY_ARRAY_UNIQUE_SYMBOL gen_ARRAY_API
+#include "numpy/arrayobject.h"
+//}
+
 #include <memory> // unique_ptr
 #include <utility>
 #include <vector> 
@@ -95,20 +102,19 @@ private:
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
-    static void print_align(align_result& r);
-    
     // align queries to target, and also try to align the ins segments
     static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
         std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads);
-    
+        
+    static void print_align(align_result& r);
     
 public:
-    
+   
     
     Aligner(const char** sequences_file_paths, std::uint32_t num_threads,
         std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
      
-
+    PyObject* test();
     
 };
 

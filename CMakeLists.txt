@@ -6,16 +6,27 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+execute_process (
+    COMMAND python3 -c "from sysconfig import get_config_var;print(get_config_var('LIBDIR'), end='/');print(get_config_var('INSTSONAME'), end='')"
+    OUTPUT_VARIABLE pylib
+)
 
+execute_process (
+    COMMAND python3 -c "from sysconfig import get_config_var;print(get_config_var('CONFINCLUDEPY'), end='')"
+    OUTPUT_VARIABLE pyinc
+)
 
-include_directories(include edlib/include)
+message(STATUS "Python include dir: ${pyinc}")
+message(STATUS "Python library path: ${pylib}")
+
+include_directories(include edlib/include ${pyinc})
 add_library(align_reads STATIC src/aligner.cpp edlib/src/edlib.cpp)
 
 # bioparser
 if (NOT TARGET bioparser)
   add_subdirectory(bioparser EXCLUDE_FROM_ALL)
 endif ()
-target_link_libraries(align_reads bioparser::bioparser)
+target_link_libraries(align_reads bioparser::bioparser ${pylib})
 
 # ram. biosoup and thread_pool contained.
 if (NOT TARGET ram)

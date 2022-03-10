@@ -8,5 +8,8 @@ align_reads_venv/bin/activate:
 	. align_reads_venv/bin/activate; pip install pip --upgrade; pip install -r requirements.txt
 
 libalign_reads.a: build/libalign_reads.a venv
+
+build/libalign_reads.a:
 	. align_reads_venv/bin/activate; cmake -S . -B build/; cmake --build build/
+
 	

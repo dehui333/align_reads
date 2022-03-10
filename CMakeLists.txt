@@ -16,10 +16,16 @@ execute_process (
     OUTPUT_VARIABLE pyinc
 )
 
+execute_process (
+    COMMAND python3 -c "import numpy as np;print(np.get_include(), end='')"
+    OUTPUT_VARIABLE numpyinc
+)
+
 message(STATUS "Python include dir: ${pyinc}")
 message(STATUS "Python library path: ${pylib}")
+message(STATUS "Numpy include dir: ${numpyinc}")
 
-include_directories(include edlib/include ${pyinc})
+include_directories(include edlib/include ${pyinc} ${numpyinc})
 add_library(align_reads STATIC src/aligner.cpp edlib/src/edlib.cpp)
 
 # bioparser

@@ -17,6 +17,10 @@
 
 namespace align_reads {
 
+struct Data {
+    std::vector<PyObject*> X;
+    std::vector<PyObject*> Y;        
+};
 
 class Aligner {
 
@@ -34,7 +38,7 @@ private:
     
     struct seq_info {
         std::uint32_t id;
-        bool reverse_complement;
+        bool reverse_complement; // is actually seq the reverse complement of what's in the alignment?
         seq_info(std::uint32_t id, bool reverse_comp) : id(id), reverse_complement(reverse_comp) {};
     };
     
@@ -53,6 +57,7 @@ private:
         std::vector<std::uint32_t> ins_at_least2; // target positions where there are at least 2 reads with ins
         std::vector<align_boundary> align_boundaries; // where do the others align to the top sequence (target)
         
+        
         align_result() = default;
         align_result(align_result&& r) : target_columns(std::move(r.target_columns)), ins_columns(std::move(r.ins_columns)), 
             width(r.width), inserters(std::move(r.inserters)), ins_at_least2(std::move(r.ins_at_least2)),
@@ -69,6 +74,8 @@ private:
             }
             return *this;    
         };
+        
+        void print();
     };
 
     struct align_overlapping_result {
@@ -89,7 +96,7 @@ private:
             return *this;
         };
         
-            
+        Data produce_data(bool produce_labels=false);
     };
 
     
@@ -106,7 +113,7 @@ private:
     static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
         std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads);
         
-    static void print_align(align_result& r);
+
     
 public:
    

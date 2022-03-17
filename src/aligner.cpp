@@ -2,8 +2,12 @@
 #include <cmath>
 #include <iostream>
 #include <iterator>
+#include <math.h>
 #include <stdexcept>
+#include <stdio.h>      /* printf, scanf, puts, NULL */
+#include <stdlib.h>     /* srand, rand */
 #include <string>
+#include <time.h>       /* time */
 #include <unordered_set>
 #include <utility>
 
@@ -15,8 +19,11 @@
 #include "ram/minimizer_engine.hpp"
 #include "thread_pool/thread_pool.hpp"
 
-std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
+#define MATRIX_HEIGHT 256
+#define MATRIX_WIDTH 256
+ 
 
+std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
 namespace align_reads {
 
@@ -52,14 +59,13 @@ constexpr static std::uint8_t ENCODER[] = {
 constexpr static char DECODER[] = {
     'A', 'C', 'G', 'T', '_'
 };
-constexpr static std::uint16_t MATRIX_COL_NUM = 256;
-constexpr static std::uint16_t MATRIX_ROW_NUM = 256;
-    
+   
 Aligner::Aligner(const char** sequences_paths, std::uint32_t num_threads, std::uint8_t kmer_len, 
     std::uint8_t window_len, double freq, const char** haplotypes_paths) 
     : minimizer_engine(std::make_shared<thread_pool::ThreadPool>(num_threads), kmer_len, window_len) {
     
-    
+    srand (time(NULL));
+   
     auto is_suffix = [] (const std::string& s, const std::string& suff) {
     return s.size() < suff.size() ? false :
         s.compare(s.size() - suff.size(), suff.size(), suff) == 0;
@@ -438,13 +444,18 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
         
         std::uint32_t adjusted_begin = best_match.rhs_begin - best_match.lhs_begin;
         std::uint32_t adjusted_end = target_string.size() - best_match.lhs_end + best_match.rhs_end;
+        
+        // Extra allowance 
+        adjusted_begin = adjusted_begin < 50 ? 0 : adjusted_begin - 50;
+        adjusted_end += 50;
+        
         auto& seqs = haplotypes_sequences[i];
         auto& seq = seqs[id_to_pos_index[best_match_id]];
         if (!best_match_strand) {
             seq->ReverseAndComplement();
         }
         std::string hap_string = seq->InflateData(adjusted_begin, adjusted_end - adjusted_begin);
-        pads.emplace_back(0, 0);
+        pads.emplace_back(50, 50);
         overlapping_seqs.push_back(std::move(hap_string));
         seq->ReverseAndComplement();                
     }
@@ -503,25 +514,158 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
 }
 
-void Aligner::print_align(Aligner::align_result& r) {
+Data Aligner::align_overlapping_result::produce_data(bool produce_labels) {
+    
+    Data d;
+    npy_intp dims[2];
+    dims[0] = MATRIX_HEIGHT;
+    dims[1] = MATRIX_WIDTH;
+   
+    std::uint32_t offset = produce_labels ? 2 : 0;
+       
+    std::uint32_t alignment_width = this->alignment.width;
+    
+    std::vector<align_boundary>& boundaries = this->alignment.align_boundaries; 
+    
+    // to store window to reads info
+    std::uint32_t num_windows = ceil((float) alignment_width/MATRIX_WIDTH);
+    std::vector<std::vector<std::uint32_t>> covering_reads; 
+    covering_reads.resize(num_windows);
+    
+    // to store read to windows info
+    
+    struct windows_info {
+        std::uint32_t first_window;
+        std::uint32_t last_window;
+        std::vector<std::pair<std::uint32_t, std::uint32_t>> starting_indices; // gives start index for each of last_window - first_window 
+    };                                                                          // + 1 windows                     
+    
+    std::vector<windows_info> windows_covered;
+    windows_covered.resize(boundaries.size() - offset);
+    
+    
+    
+    for (std::uint32_t k = 0; k < boundaries.size() - offset; k++) {
+        //std::cout << "boundary: " << b.align_start << " to " << b.align_end << std::endl;
+        auto& b = boundaries[k];
+        
+        //realigning boundaries to width index
+        std::uint32_t target_align_start = b.align_start; // inclusive
+        std::uint32_t target_align_end = b.align_end;     // inclusive
+        std::uint32_t total_ins = 0;
+        for (std::uint32_t i = 0; i < target_align_start; i++) {
+            auto to_add = this->alignment.ins_columns[i].size();
+            // realign boundaries based on insertions
+            b.align_start += to_add;
+            b.align_end += to_add;
+            total_ins += to_add;    
+        }
+        
+        // where this read start in each window
+        auto& starting_indices = windows_covered[k].starting_indices;
+        starting_indices.reserve((b.align_end - b.align_start + 1) / MATRIX_WIDTH + 1); // estimated num of windows covered
+        
+        std::uint32_t last_window = b.align_start / MATRIX_WIDTH;
+        for (std::uint32_t i = target_align_start; i <= target_align_end; i++) {
+            // realign boundaries based on insertions
+            b.align_end += this->alignment.ins_columns[i].size();           
+            
+            // location info
+            std::uint32_t width_idx = i += total_ins; // where am I at on the alignment
+            std::uint32_t current_window =  width_idx / MATRIX_WIDTH;
+                       
+            
+            // if first or new window at a target position
+            if (current_window > last_window || i == target_align_start) {
+                // update of windows_info
+                if (i == target_align_start) windows_covered[k].first_window = current_window;  // if first window              
+                starting_indices.emplace_back(i, 0);
+                
+                // update of covering_reads
+                covering_reads[current_window].push_back(k);
+                
+                last_window++;    
+            }
+                        
+            
+        
+                                                  
+            for (std::uint32_t j = 1; j <= this->alignment.ins_columns[i].size(); j++) {
+                total_ins++;
+                
+                // location info
+                std::uint32_t width_idx = i += total_ins; // where am I at on the alignment
+                std::uint32_t current_window =  width_idx / MATRIX_WIDTH;
+                
+                // if new window at an ins position
+                if (current_window > last_window) {
+                    // update of windows_info                                
+                    starting_indices.emplace_back(i, j);
+                    
+                    // update of covering_reads
+                    covering_reads[current_window].push_back(k);
+                    
+                    last_window++;    
+                }
+                
+            }                 
+        }
+        windows_covered[k].last_window = last_window;
+    }
+    /*std::cout << "adjusted " << std::endl;
+    for (std::uint32_t k = 0; k < boundaries.size(); k++) {
+        auto& b = boundaries[k];
+        std::cout << "boundary: " << b.align_start << " to " << b.align_end << std::endl;       
+    }*/
+    
+    
+    /*
+    // go through all the reads, put them into appropriate windows
+    for (std::uint32_t i = 0; i < boundaries.size() - offset; i++) {
+        std::uint32_t first_window = boundaries[i].align_start / MATRIX_WIDTH;
+        std::uint32_t last_window = boundaries[i].align_end / MATRIX_WIDTH;
+        for (std::uint32_t j = first_window; j <= last_window; j++) {
+            covering_reads[j].push_back(i);
+            //std::cout << i << " in " << j << std::endl;
+        }       
+    }*/
+    /*
+    for (std::uint32_t i = 0; i < num_windows; i++) {
+        auto X = PyArray_SimpleNew(2, dims, NPY_UINT8);
+        uint8_t* value_ptr;
+        
+        
+        
+        
+        
+        
+        
+    }*/
+    
+    
+       
+    return d;
+}
+
+void Aligner::align_result::print() {
     std::uint32_t block_width = 100;
     std::vector<std::vector<std::string>> output_blocks;
-    std::uint32_t num_rows = r.target_columns[0].size() * 2 -1;
-    std::uint32_t num_blocks = r.width / block_width;
-    num_blocks = r.width % block_width == 0 ? num_blocks : num_blocks + 1;
+    std::uint32_t num_rows = this->target_columns[0].size() * 2 -1;
+    std::uint32_t num_blocks = this->width / block_width;
+    num_blocks = this->width % block_width == 0 ? num_blocks : num_blocks + 1;
     output_blocks.resize(num_blocks);
     for (auto& block : output_blocks) {
         block.resize(num_rows);
         for (auto& row : block) {
-            row.reserve(r.width);
+            row.reserve(width);
         }
     }
     std::uint32_t col_index = 0;
-    if (r.ins_columns.size() > r.target_columns.size()) {
+    if (this->ins_columns.size() > this->target_columns.size()) {
         
-        auto& ins_columns = r.ins_columns[r.target_columns.size()];
-        for (std::uint32_t j = 0; j < ins_columns.size() ; j++) { // for each ins column here
-            auto& ins_column = ins_columns[j];
+        auto& ins_cols = this->ins_columns[this->target_columns.size()];
+        for (std::uint32_t j = 0; j < ins_cols.size() ; j++) { // for each ins column here
+            auto& ins_column = ins_cols[j];
             auto& block = output_blocks[col_index++/block_width];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
                 if (k%2==0) { 
@@ -538,8 +682,8 @@ void Aligner::print_align(Aligner::align_result& r) {
         }     
     }
     
-    for (std::uint32_t i = 0; i < r.target_columns.size(); i++) { // for each target position        
-        auto& column = r.target_columns[i];
+    for (std::uint32_t i = 0; i < this->target_columns.size(); i++) { // for each target position        
+        auto& column = this->target_columns[i];
         auto& block = output_blocks[col_index++/block_width];
         for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
             if (k%2==0) { 
@@ -553,10 +697,10 @@ void Aligner::print_align(Aligner::align_result& r) {
                 }
             }        
         }
-        auto& ins_columns = r.ins_columns[i];
-        for (std::uint32_t j = 0; j < ins_columns.size(); j++) { // for each ins column here
+        auto& ins_cols = this->ins_columns[i];
+        for (std::uint32_t j = 0; j < ins_cols.size(); j++) { // for each ins column here
             auto& block = output_blocks[col_index++/block_width];
-            auto& ins_column = ins_columns[j];
+            auto& ins_column = ins_cols[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
                 if (k%2==0) {
                     block[k].push_back(ins_column[k/2]);

@@ -83,19 +83,19 @@ TEST(ComponentTests, aligning) {
     std::vector<std::string> queries = {"AAGACTTCACGGTACAA", "GACTCAGGGAC"};
     std::vector<std::pair<std::uint32_t, std::uint32_t>> v;
     auto result = align_reads::Aligner::pseudoMSA(queries, target, v);    
-    align_reads::Aligner::print_align(result);
+    result.print();
 }
 
 TEST(ComponentTests, align_overlapping) {
     const char* p[2] = {"../test_data/reads_align.fasta", nullptr};
     align_reads::Aligner gen_fasta {p, 3, 15, 5, 0.001};
     auto result = gen_fasta.align_overlapping(gen_fasta.sequences[0]);
-    align_reads::Aligner::print_align(result.alignment);
+    result.alignment.print();
     
     const char* p2[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
     align_reads::Aligner gen_fasta2 {p2, 3, 15, 5, 0.001};
     auto result2 = gen_fasta2.align_overlapping(gen_fasta2.sequences[0]);
-    align_reads::Aligner::print_align(result2.alignment);
+    result2.alignment.print();
 }
 
 TEST(ComponentTests, all_inputs) {
@@ -109,7 +109,8 @@ TEST(ComponentTests, all_inputs) {
     EXPECT_EQ(gen.haplotypes_sequences[1].size(), 1);
     
     auto result = gen.align_overlapping(gen.sequences[0]);
-    align_reads::Aligner::print_align(result.alignment);
+    result.alignment.print();
+    result.produce_data();
 
 }
 
@@ -120,6 +121,8 @@ TEST(ComponentTests, align_hap) {
     
     
     auto result = gen.align_overlapping_plus_haplotypes(gen.sequences[0]);
-    align_reads::Aligner::print_align(result.alignment);
+    result.alignment.print();
+    result.produce_data();
+    
     
 }

@@ -122,7 +122,7 @@ TEST(ComponentTests, align_hap) {
     
     auto result = gen.align_overlapping_plus_haplotypes(gen.sequences[0]);
     result.alignment.print();
-    result.produce_data();
+    result.produce_data(true);
     
     
 }

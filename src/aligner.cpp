@@ -520,7 +520,6 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels) {
     npy_intp dims[2];
     dims[0] = MATRIX_HEIGHT;
     dims[1] = MATRIX_WIDTH;
-   
     std::uint32_t offset = produce_labels ? 2 : 0;
        
     std::uint32_t alignment_width = this->alignment.width;
@@ -539,16 +538,14 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels) {
         std::uint32_t last_window;
         std::vector<std::pair<std::uint32_t, std::uint32_t>> starting_indices; // gives start index for each of last_window - first_window 
     };                                                                          // + 1 windows                     
-    
     std::vector<windows_info> windows_covered;
     windows_covered.resize(boundaries.size() - offset);
-    
     
     
     for (std::uint32_t k = 0; k < boundaries.size() - offset; k++) {
         //std::cout << "boundary: " << b.align_start << " to " << b.align_end << std::endl;
         auto& b = boundaries[k];
-        
+        std::cout << 0 << std::endl;
         //realigning boundaries to width index
         std::uint32_t target_align_start = b.align_start; // inclusive
         std::uint32_t target_align_end = b.align_end;     // inclusive
@@ -560,18 +557,18 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels) {
             b.align_end += to_add;
             total_ins += to_add;    
         }
-        
+
         // where this read start in each window
         auto& starting_indices = windows_covered[k].starting_indices;
         starting_indices.reserve((b.align_end - b.align_start + 1) / MATRIX_WIDTH + 1); // estimated num of windows covered
-        
+
         std::uint32_t last_window = b.align_start / MATRIX_WIDTH;
         for (std::uint32_t i = target_align_start; i <= target_align_end; i++) {
             // realign boundaries based on insertions
             b.align_end += this->alignment.ins_columns[i].size();           
             
             // location info
-            std::uint32_t width_idx = i += total_ins; // where am I at on the alignment
+            std::uint32_t width_idx = i + total_ins; // where am I at on the alignment
             std::uint32_t current_window =  width_idx / MATRIX_WIDTH;
                        
             
@@ -586,15 +583,12 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels) {
                 
                 last_window++;    
             }
-                        
-            
-        
-                                                  
+                                                                                      
             for (std::uint32_t j = 1; j <= this->alignment.ins_columns[i].size(); j++) {
                 total_ins++;
                 
                 // location info
-                std::uint32_t width_idx = i += total_ins; // where am I at on the alignment
+                std::uint32_t width_idx = i + total_ins; // where am I at on the alignment
                 std::uint32_t current_window =  width_idx / MATRIX_WIDTH;
                 
                 // if new window at an ins position
@@ -610,7 +604,9 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels) {
                 
             }                 
         }
+        
         windows_covered[k].last_window = last_window;
+
     }
     /*std::cout << "adjusted " << std::endl;
     for (std::uint32_t k = 0; k < boundaries.size(); k++) {

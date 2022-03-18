@@ -15,15 +15,10 @@ const char* reads_fastq_path = "../test_data/reads.fastq";
 const char* reads_fasta_path = "../test_data/reads.fasta";
 const char* overlap_paf_path = "../test_data/overlap.paf";
 
-static void* init(void) {
-    Py_Initialize();
-    import_array();
-    return NULL;
-}
 
 // Demonstrate some basic assertions.
 TEST(TrivialTests, BasicAssertions) {
-    init();
+    //init();
     // Expect two strings not to be equal.
     EXPECT_STRNE("hello", "world");
     // Expect equality.
@@ -110,7 +105,7 @@ TEST(ComponentTests, all_inputs) {
     
     auto result = gen.align_overlapping(gen.sequences[0]);
     result.alignment.print();
-    result.produce_data();
+ 
 
 }
 
@@ -122,7 +117,6 @@ TEST(ComponentTests, align_hap) {
     
     auto result = gen.align_overlapping_plus_haplotypes(gen.sequences[0]);
     result.alignment.print();
-    result.produce_data(true);
     
     
 }

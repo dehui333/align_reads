@@ -13,7 +13,7 @@ build/libalign_reads.a: build/Makefile src/aligner.cpp
 	cmake --build build/
 
 build/Makefile:
-	align_reads_venv/bin/activate; cmake -S . -B build/
+	. align_reads_venv/bin/activate; cmake -S . -B build/
 
 
 	

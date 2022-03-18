@@ -43,6 +43,7 @@ private:
     };
     
     struct align_boundary {
+		// initially refer to target indices, changed to width indices when producing matrices
         std::uint32_t align_start; 
         std::uint32_t align_end;   // inclusive 
         align_boundary(std::uint32_t start, std::uint32_t end) : align_start(start), align_end(end) {};
@@ -121,7 +122,7 @@ public:
     Aligner(const char** sequences_file_paths, std::uint32_t num_threads,
         std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
      
-    PyObject* test();
+    Data test();
     
 };
 

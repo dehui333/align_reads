@@ -43,7 +43,7 @@ private:
     };
     
     struct align_boundary {
-		// initially refer to target indices, changed to width indices when producing matrices
+		// refer to target indices
         std::uint32_t align_start; 
         std::uint32_t align_end;   // inclusive 
         align_boundary(std::uint32_t start, std::uint32_t end) : align_start(start), align_end(end) {};
@@ -97,7 +97,7 @@ private:
             return *this;
         };
         
-        Data produce_data(bool produce_labels=false);
+        Data produce_data(bool produce_labels=false, std::uint32_t start_of_other_phase=0);
     };
 
     

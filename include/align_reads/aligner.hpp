@@ -46,6 +46,7 @@ private:
 		// refer to target indices
         std::uint32_t align_start; 
         std::uint32_t align_end;   // inclusive 
+        //bool contained;
         align_boundary(std::uint32_t start, std::uint32_t end) : align_start(start), align_end(end) {};
     };
     

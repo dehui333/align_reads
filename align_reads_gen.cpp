@@ -8,8 +8,35 @@
 
 // Module method definitions
 static PyObject* generate_features_cpp(PyObject *self, PyObject *args) {
-    const char* reads_path[2] = {"test_data/fake_reads0.fasta", "test_data/fake_reads1.fasta"};
-    const char* haplotypes_path[2] = {"test_data/fake_haplotype0.fasta", "test_data/fake_haplotype1.fasta"};
+    
+    PyObject *read_paths_list, *hap_paths_list, *item;
+    const char* reads_path[2] = {nullptr, nullptr};
+    const char* haplotypes_path[2] = {nullptr, nullptr};
+    
+    if (!PyArg_ParseTuple(args, "OO", &read_paths_list, &hap_paths_list)) return NULL;
+    
+    if (PyList_Check(read_paths_list) && PyList_Size(read_paths_list) == 2 && PyList_Check(hap_paths_list)) {
+        for (Py_ssize_t i = 0; i < 2; i++) {
+            item = PyList_GetItem(read_paths_list, i);
+            if (!item) return NULL;
+            item = PyUnicode_AsEncodedString(item, "UTF-8", "strict");
+            if (!item) return NULL;
+            reads_path[i] = PyBytes_AsString(item);
+        }
+        
+        for (Py_ssize_t i = 0; i < PyList_Size(hap_paths_list); i++) {
+            item = PyList_GetItem(hap_paths_list, i);
+            if (!item) return NULL;
+            item = PyUnicode_AsEncodedString(item, "UTF-8", "strict");
+            if (!item) return NULL;
+            haplotypes_path[i] = PyBytes_AsString(item);           
+        }                 
+        
+    } else {
+        return NULL;
+    }
+    
+    
     align_reads::Aligner gen {reads_path, 3, 15, 5, 0.001, haplotypes_path};
     align_reads::Data data = gen.test();
 	
@@ -19,7 +46,8 @@ static PyObject* generate_features_cpp(PyObject *self, PyObject *args) {
 	// Create lists of matrices 
 	PyObject* X_list = PyList_New(data.X.size());
 	PyObject* Y_list = PyList_New(data.Y.size());
-	
+    
+    
 	// fill in lists
 	for (std::uint32_t i = 0; i < data.X.size(); i++) {
 		PyList_SetItem(X_list, i, data.X[i]);				

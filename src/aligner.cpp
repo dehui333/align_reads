@@ -28,10 +28,14 @@ std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
 namespace align_reads {
 
-Data Aligner::test() {
-    auto result = align_overlapping_plus_haplotypes(sequences[0]);
-    return result.produce_data(true, start_of_other_phase);
+Data Aligner::next() {
+    auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
+    // !!! why only 20 windows? 
+    // !!! keep unknown in X as unknown
+    return result.produce_data(start_of_other_phase != static_cast<std::uint32_t>(-1), start_of_other_phase);
 }
+
+
 constexpr static std::uint8_t ENCODER[] = {
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255,    
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -216,8 +220,10 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
         std::uint32_t next_query_index = 0; // upcoming query position
         std::uint32_t next_target_index = align.startLocations[0] <= left_pad ? 0 :align.startLocations[0] - left_pad; // upcoming target position
         std::uint32_t next_ins_index = 0; // upcoming ins index for the current segment
-        result.align_boundaries.emplace_back(static_cast<std::uint32_t>(next_target_index),
-            static_cast<std::uint32_t>(align.endLocations[0] >= left_pad + target.size() ? target.size() - 1 : align.endLocations[0] - left_pad ));
+        std::uint32_t align_start = next_target_index;
+        std::uint32_t align_end = static_cast<std::uint32_t>(align.endLocations[0] >= left_pad + target.size() ? target.size() - 1 : align.endLocations[0] - left_pad );
+        bool contained = true;
+        
         for (int i = 0; i < align.alignmentLength; i++) {
             
          
@@ -225,12 +231,12 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
                 case 0: { // match
                      // if in padded area
                     if (t_pointer < left_pad) {
-  
+                        contained = false;
                         t_pointer++;
                         next_query_index++;
                         continue;
                     } else if (t_pointer >= left_pad + target.size()) {
-
+                        contained = false;
                         i = align.alignmentLength;  
                         continue;   
                     }
@@ -249,15 +255,18 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
                     if (clip_query) {
                         // insertions in the query to the sides of target is ignored
                         if (next_target_index == 0) {
+                            contained = false;
                             next_query_index++;
                             continue;
                         } else if (next_target_index == left_pad + target.size()) {
+                            contained = false;
                             i = align.alignmentLength;  // if at ins of the query to the right of target, terminate loop early
                             continue;                       
                         }    
                     } else {
-                        //padding will only be used with clipping 
+                        //Ins to left of target. 
                         if (next_target_index == 0) {
+                            contained = false;
                             ins_columns_index = target.size();        
                         }
                     }
@@ -291,10 +300,12 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
                    
                     // if in padded area
                     if (t_pointer < left_pad) {
+                        contained = false;
                         t_pointer++;
                         next_query_index++;
                         continue;
                     } else if (t_pointer >= left_pad + target.size()) {
+                        contained = false;
                         i = align.alignmentLength;  
                         continue;   
                     }
@@ -309,7 +320,8 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
                 }        
             }            
         }
-
+        
+        result.align_boundaries.emplace_back(align_start, align_end, contained);
         
         edlibFreeAlignResult(align); 
     }

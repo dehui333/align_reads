@@ -8,6 +8,7 @@
 #include "numpy/arrayobject.h"
 //}
 
+#include <atomic>
 #include <memory> // unique_ptr
 #include <utility>
 #include <vector> 
@@ -34,6 +35,7 @@ private:
     std::vector<std::vector<std::unique_ptr<biosoup::NucleicAcid>>> haplotypes_sequences;
     std::vector<ram::MinimizerEngine> haplotypes_minimizer_engines;
     
+    std::atomic<std::uint32_t> num_processed{0};
     
     
     struct seq_info {
@@ -46,8 +48,8 @@ private:
 		// refer to target indices
         std::uint32_t align_start; 
         std::uint32_t align_end;   // inclusive 
-        //bool contained;
-        align_boundary(std::uint32_t start, std::uint32_t end) : align_start(start), align_end(end) {};
+        bool contained;
+        align_boundary(std::uint32_t start, std::uint32_t end, bool contained) : align_start(start), align_end(end), contained(contained) {};
     };
     
     struct align_result {
@@ -123,7 +125,9 @@ public:
     Aligner(const char** sequences_file_paths, std::uint32_t num_threads,
         std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
      
-    Data test();
+    Data next();
+    
+    bool has_next();
     
 };
 

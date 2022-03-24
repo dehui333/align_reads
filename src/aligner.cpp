@@ -167,7 +167,7 @@ Aligner::Aligner(const char** sequences_paths, std::uint32_t num_threads, std::u
 
 Aligner::align_result Aligner::align_to_target_clip(std::vector<std::string>& queries, std::string& target,
     std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads, std::vector<std::vector<std::uint32_t>>& inserters,
-    std::vector<std::uint32_t>& ins_at_least2) {
+    std::vector<std::uint32_t>& ins_at_least2, bool has_hap) {
     
     EdlibEqualityPair additionalEqualities[4] = {{'A', 'X'}, {'C', 'X'}, {'G', 'X'}, {'T', 'X'}};     
     align_result result;
@@ -273,6 +273,20 @@ Aligner::align_result Aligner::align_to_target_clip(std::vector<std::string>& qu
                         continue;                       
                     }    
                     
+                                        
+                    // check if we have enough columns ready for this target position
+                    auto& ins_columns = result.ins_columns[ins_columns_index];
+                    if (ins_columns.size() < next_ins_index + 1) {
+                        if (has_hap && k >= queries.size() - 2) {
+                            next_query_index++;
+                            continue;
+                        }
+                        // if not enough, create new column
+                        ins_columns.resize(next_ins_index + 1);
+                        ins_columns[next_ins_index].resize(queries.size() + 1, '_');
+                        result.width++;
+                    }
+                    
                     // Record existence of ins at certain positions
                     if (next_ins_index == 0) {
                         auto& v = inserters[ins_columns_index]; 
@@ -280,15 +294,8 @@ Aligner::align_result Aligner::align_to_target_clip(std::vector<std::string>& qu
                         if (v.size() == 2) {
                             ins_at_least2.push_back(ins_columns_index);
                         }
-                    }                        
-                    // check if we have enough columns ready for this target position
-                    auto& ins_columns = result.ins_columns[ins_columns_index];
-                    if (ins_columns.size() < next_ins_index + 1) {
-                        // if not enough, create new column
-                        ins_columns.resize(next_ins_index + 1);
-                        ins_columns[next_ins_index].resize(queries.size() + 1, '_');
-                        result.width++;
-                    } 
+                    }
+                    
                     ins_columns[next_ins_index++][k+1] = query[next_query_index++];
                     break;
                 }
@@ -332,7 +339,7 @@ Aligner::align_result Aligner::align_to_target_clip(std::vector<std::string>& qu
     return result;
 }
 
-Aligner::align_result Aligner::align_to_target_no_clip(std::vector<std::string>& queries, std::string& target) {
+Aligner::align_result Aligner::align_to_target_no_clip(std::vector<std::string>& queries, std::string& target, bool has_hap) {
      
     align_result result;
     // Fill in the bases from the target into the first row
@@ -344,7 +351,8 @@ Aligner::align_result Aligner::align_to_target_no_clip(std::vector<std::string>&
     }
 
     // Allowance for insertion columns after each target position
-    result.ins_columns.resize(target.size() + 1);
+    result.ins_columns.reserve(target.size() + 1);
+    result.ins_columns.resize(target.size());
     
     // Initialize width of the alignment to the length of the target 
     result.width = target.size(); // will be incremented along with adding insertion columns
@@ -382,12 +390,21 @@ Aligner::align_result Aligner::align_to_target_no_clip(std::vector<std::string>&
                     //Ins to left of target. 
                     if (next_target_index == 0) {
                         contained = false;
+                        if (has_hap && k >= queries.size() - 2) {
+                            next_query_index++;
+                            continue;
+                        }
+                        result.ins_columns.resize(target.size() + 1);
                         ins_columns_index = target.size();        
                     }
                                            
                     // check if we have enough columns ready for this target position
                     auto& ins_columns = result.ins_columns[ins_columns_index];
                     if (ins_columns.size() < next_ins_index + 1) {
+                        if (has_hap && k >= queries.size() - 2) {
+                            next_query_index++;
+                            continue;
+                        }
                         // if not enough, create new column
                         ins_columns.resize(next_ins_index + 1);
                         ins_columns[next_ins_index].resize(queries.size() + 1, '_');
@@ -427,22 +444,20 @@ Aligner::align_result Aligner::align_to_target_no_clip(std::vector<std::string>&
 
 
 Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std::string& target, 
-    std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads) {
+    std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads, bool has_hap) {
     
     std::vector<std::vector<std::uint32_t>> inserters; //for each position, contains positional index of queries that has ins there    
     inserters.resize(target.size());
     std::vector<std::uint32_t> ins_at_least2;    // target positions where there are at least 2 reads with ins
     
-    
-    
-    align_result result = align_to_target_clip(queries, target, &pads, inserters, ins_at_least2);
+    align_result result = align_to_target_clip(queries, target, &pads, inserters, ins_at_least2, has_hap);
     for (auto& ins_pos : ins_at_least2) { // for all positions that have at least two queries with insertions, 
-        // extract the ins segments there
+        // extract the ins segments, and record the longest one  
         std::uint32_t position_index_longest = 0; // index in ins_segments
         std::uint32_t longest_ins_len = 0;
         
         std::vector<std::string> ins_segments;
-        auto inserters_at_pos = inserters[ins_pos];
+        auto inserters_at_pos = inserters[ins_pos]; // all the inserters here
         ins_segments.resize(inserters_at_pos.size());
         auto& ins_columns = result.ins_columns[ins_pos];
         for (auto& column : ins_columns) { // for each column, extract the non gap bases for the queries with ins there
@@ -451,7 +466,7 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
                 auto& segment = ins_segments[i];
                 if (base != '_') {
                     segment.push_back(base);
-                    if (segment.size() > longest_ins_len) {
+                    if (segment.size() > longest_ins_len && (!has_hap || inserters_at_pos[i] < queries.size() - 2)) {
                         position_index_longest = i;
                         longest_ins_len = segment.size();
                     }
@@ -464,27 +479,45 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
         inserters_at_pos.erase(inserters_at_pos.begin() + position_index_longest); //exclude longest from list of queries 
         std::string longest_ins_segment = std::move(ins_segments[position_index_longest]);
         ins_segments.erase(ins_segments.begin() + position_index_longest);
-        auto sub_result = align_to_target_no_clip(ins_segments, longest_ins_segment);
+        auto sub_result = align_to_target_no_clip(ins_segments, longest_ins_segment, has_hap);
         
+        // get more ins columns for a target position if needed
         ins_columns.resize(sub_result.width);
-        std::uint32_t main_column_id = 0;
+        std::uint32_t to_column_id = 0;
+        
+        // if there is ins to the left of target...
+        if (sub_result.ins_columns.size() > sub_result.target_columns.size()) {
+            auto& sub_ins_columns = sub_result.ins_columns[sub_result.target_columns.size()];
+            for (std::uint32_t j = 0; j < sub_ins_columns.size(); j++) {
+                auto& to_column = ins_columns[to_column_id++];
+                auto& from_column = sub_ins_columns[j];
+                to_column[query_position_longest_ins + 1] = from_column[0];    
+                for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
+                    to_column[inserters_at_pos[j] + 1] = from_column[j + 1];               
+                }    
+            }
+            
+        }
+        
         for(std::uint32_t i = 0; i < sub_result.target_columns.size(); i++) {
-            auto& ins_column = ins_columns[main_column_id++];
-            auto& sub_column = sub_result.target_columns[i];
-            ins_column[query_position_longest_ins + 1] = sub_column[0];
+            auto& to_column = ins_columns[to_column_id++];
+            auto& from_column = sub_result.target_columns[i];
+            
+            // traversing the from columns 
+            to_column[query_position_longest_ins + 1] = from_column[0]; // the target is the top row of the alignment
             for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
-                ins_column[inserters_at_pos[j] + 1] = sub_column[j + 1];               
+                to_column[inserters_at_pos[j] + 1] = from_column[j + 1];             
             }
             auto& sub_ins_columns = sub_result.ins_columns[i];
             for (std::uint32_t j = 0; j < sub_ins_columns.size(); j++) {
-                auto& ins_column = ins_columns[main_column_id++];
-                auto& sub_column = sub_ins_columns[j];
-                ins_column[query_position_longest_ins + 1] = sub_column[0];    
+                auto& to_column = ins_columns[to_column_id++];
+                auto& from_column = sub_ins_columns[j];
+                to_column[query_position_longest_ins + 1] = from_column[0];    
                 for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
-                ins_column[inserters_at_pos[j] + 1] = sub_column[j + 1];               
+                    to_column[inserters_at_pos[j] + 1] = from_column[j + 1];               
                 }    
             }            
-        }           
+        }                  
     }
 
     
@@ -578,7 +611,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
         if (!best_match_strand) seq->ReverseAndComplement();                
     }
     
-    auto alignment = pseudoMSA(overlapping_seqs, target_string, pads);    
+    auto alignment = pseudoMSA(overlapping_seqs, target_string, pads, true);    
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);        
 }
 
@@ -631,7 +664,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
         }
     }
     
-    auto alignment = pseudoMSA(overlapping_reads, target_string, pads);    
+    auto alignment = pseudoMSA(overlapping_reads, target_string, pads, false);    
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
 }
 

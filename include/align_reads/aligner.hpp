@@ -81,7 +81,7 @@ private:
         
         void print();
     };
-
+    
     struct align_overlapping_result {
         
         align_result alignment;
@@ -102,7 +102,7 @@ private:
         
         Data produce_data(bool produce_labels=false, std::uint32_t start_of_other_phase=0);
     };
-
+    
     
     
     align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
@@ -118,7 +118,7 @@ private:
         std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads);
         
 
-    
+
 public:
    
     

@@ -106,15 +106,15 @@ private:
     // align queries to target
     static align_result align_to_target_clip(std::vector<std::string>& queries, std::string& target,
         std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads, std::vector<std::vector<std::uint32_t>>& inserters,
-        std::vector<std::uint32_t>& ins_at_least2);
+        std::vector<std::uint32_t>& ins_at_least2, bool has_hap);
     
-    static align_result align_to_target_no_clip(std::vector<std::string>& queries, std::string& target);
+    static align_result align_to_target_no_clip(std::vector<std::string>& queries, std::string& target, bool has_hap);
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
     // align queries to target, and also try to align the ins segments
     static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
-        std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads);
+        std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads, bool has_hap=false);
         
 
 

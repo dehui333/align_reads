@@ -57,22 +57,17 @@ private:
         // which target position? -> which ins at that position? -> which row?
         std::vector<std::vector<std::vector<char>>> ins_columns;
         std::uint32_t width; 
-        std::vector<std::vector<std::uint32_t>> inserters; // for each position, contains positional index of queries that has ins there
-        std::vector<std::uint32_t> ins_at_least2; // target positions where there are at least 2 reads with ins
         std::vector<align_boundary> align_boundaries; // where do the others align to the top sequence (target)
         
         
         align_result() = default;
         align_result(align_result&& r) : target_columns(std::move(r.target_columns)), ins_columns(std::move(r.ins_columns)), 
-            width(r.width), inserters(std::move(r.inserters)), ins_at_least2(std::move(r.ins_at_least2)),
-            align_boundaries(std::move(r.align_boundaries)) {};
+            width(r.width), align_boundaries(std::move(r.align_boundaries)) {};
         
         align_result& operator= (align_result&& r) {
             if (this != &r) {
                 this->target_columns = std::move(r.target_columns);
                 this->ins_columns = std::move(r.ins_columns);
-                this->inserters = std::move(r.inserters);
-                this->ins_at_least2 = std::move(r.ins_at_least2);
                 this->width = r.width;
                 this->align_boundaries = std::move(r.align_boundaries);
             }
@@ -103,13 +98,17 @@ private:
         Data produce_data(bool produce_labels=false, std::uint32_t start_of_other_phase=0);
     };
     
+
     
     
     align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
     // align queries to target
-    static align_result align_to_target(std::vector<std::string>& queries, std::string& target,
-        bool clip_query, std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads=nullptr);
+    static align_result align_to_target_clip(std::vector<std::string>& queries, std::string& target,
+        std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads, std::vector<std::vector<std::uint32_t>>& inserters,
+        std::vector<std::uint32_t>& ins_at_least2);
+    
+    static align_result align_to_target_no_clip(std::vector<std::string>& queries, std::string& target);
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     

@@ -165,13 +165,12 @@ Aligner::Aligner(const char** sequences_paths, std::uint32_t num_threads, std::u
 	
 }
 
-Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries, std::string& target,
-    bool clip_query, std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads) {
+Aligner::align_result Aligner::align_to_target_clip(std::vector<std::string>& queries, std::string& target,
+    std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads, std::vector<std::vector<std::uint32_t>>& inserters,
+    std::vector<std::uint32_t>& ins_at_least2) {
     
     EdlibEqualityPair additionalEqualities[4] = {{'A', 'X'}, {'C', 'X'}, {'G', 'X'}, {'T', 'X'}};     
-    auto mode = clip_query ? EDLIB_MODE_HW : EDLIB_MODE_NW;
     align_result result;
-    std::uint8_t for_front_ins = clip_query ? 0 : 1;
     // Fill in the bases from the target into the first row
     result.target_columns.resize(target.size());        
     for (std::uint32_t i = 0; i < result.target_columns.size(); i++) { // for each column
@@ -181,13 +180,13 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
     }
 
     // Allowance for insertion columns after each target position
-    result.ins_columns.resize(target.size() + for_front_ins);
+    result.ins_columns.resize(target.size());
     
     // Initialize width of the alignment to the length of the target 
     result.width = target.size(); // will be incremented along with adding insertion columns
     
     // Initialize the record of who is inserting at each position
-    result.inserters.resize(target.size() + for_front_ins);
+    
  
     
     // Aligning queries to target and filling up/adding columns
@@ -225,7 +224,7 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
 
         auto& query = queries[k];
         EdlibAlignResult align = edlibAlign(query.c_str(), query.size(),
-            padded_target_input, padded_target_size, edlibNewAlignConfig(-1, mode, EDLIB_TASK_PATH, additionalEqualities, eq_count));
+            padded_target_input, padded_target_size, edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, additionalEqualities, eq_count));
         std::uint32_t t_pointer = align.startLocations[0];
         std::uint32_t next_query_index = 0; // upcoming query position
         std::uint32_t next_target_index = align.startLocations[0] <= left_pad ? 0 :align.startLocations[0] - left_pad; // upcoming target position
@@ -262,30 +261,24 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
                 case 1: { // ins
                    
                     std::uint32_t ins_columns_index = next_target_index - 1;
-                    if (clip_query) {
-                        // insertions in the query to the sides of target is ignored
-                        if (next_target_index == 0) {
-                            contained = false;
-                            next_query_index++;
-                            continue;
-                        } else if (next_target_index == left_pad + target.size()) {
-                            contained = false;
-                            i = align.alignmentLength;  // if at ins of the query to the right of target, terminate loop early
-                            continue;                       
-                        }    
-                    } else {
-                        //Ins to left of target. 
-                        if (next_target_index == 0) {
-                            contained = false;
-                            ins_columns_index = target.size();        
-                        }
-                    }
+                   
+                    // insertions in the query to the sides of target is ignored
+                    if (next_target_index == 0) {
+                        contained = false;
+                        next_query_index++;
+                        continue;
+                    } else if (next_target_index == left_pad + target.size()) {
+                        contained = false;
+                        i = align.alignmentLength;  // if at ins of the query to the right of target, terminate loop early
+                        continue;                       
+                    }    
+                    
                     // Record existence of ins at certain positions
                     if (next_ins_index == 0) {
-                        auto& v = result.inserters[ins_columns_index]; 
+                        auto& v = inserters[ins_columns_index]; 
                         v.push_back(k);
                         if (v.size() == 2) {
-                            result.ins_at_least2.push_back(ins_columns_index);
+                            ins_at_least2.push_back(ins_columns_index);
                         }
                     }                        
                     // check if we have enough columns ready for this target position
@@ -339,20 +332,117 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
     return result;
 }
 
+Aligner::align_result Aligner::align_to_target_no_clip(std::vector<std::string>& queries, std::string& target) {
+     
+    align_result result;
+    // Fill in the bases from the target into the first row
+    result.target_columns.resize(target.size());        
+    for (std::uint32_t i = 0; i < result.target_columns.size(); i++) { // for each column
+        auto& column = result.target_columns[i];
+        column.resize(queries.size() + 1, '_');
+        column[0] = target[i]; // the first item of each row - makes up the first row
+    }
+
+    // Allowance for insertion columns after each target position
+    result.ins_columns.resize(target.size() + 1);
+    
+    // Initialize width of the alignment to the length of the target 
+    result.width = target.size(); // will be incremented along with adding insertion columns
+    
+    // Aligning queries to target and filling up/adding columns
+    for (std::uint32_t k = 0; k < queries.size(); k++) {      
+
+        auto& query = queries[k];
+        EdlibAlignResult align = edlibAlign(query.c_str(), query.size(),
+            target.c_str(), target.size(), edlibNewAlignConfig(-1, EDLIB_MODE_NW, EDLIB_TASK_PATH, NULL, 0));
+        std::uint32_t next_query_index = 0; // upcoming query position
+        std::uint32_t next_target_index = align.startLocations[0]; // upcoming target position
+        std::uint32_t next_ins_index = 0; // upcoming ins index for the current segment
+        std::uint32_t align_start = next_target_index;
+        std::uint32_t align_end = static_cast<std::uint32_t>(align.endLocations[0]);
+        bool contained = true;
+        
+        for (int i = 0; i < align.alignmentLength; i++) {
+            
+         
+            switch (align.alignment[i]) {
+                case 0: { // match
+ 
+                    //place matching query base from the query into column
+                    
+                    result.target_columns[next_target_index++][k+1] = query[next_query_index++]; 
+
+                    next_ins_index = 0;
+                    break;
+                }
+                case 1: { // ins
+                   
+                    std::uint32_t ins_columns_index = next_target_index - 1;
+                    
+                    //Ins to left of target. 
+                    if (next_target_index == 0) {
+                        contained = false;
+                        ins_columns_index = target.size();        
+                    }
+                                           
+                    // check if we have enough columns ready for this target position
+                    auto& ins_columns = result.ins_columns[ins_columns_index];
+                    if (ins_columns.size() < next_ins_index + 1) {
+                        // if not enough, create new column
+                        ins_columns.resize(next_ins_index + 1);
+                        ins_columns[next_ins_index].resize(queries.size() + 1, '_');
+                        result.width++;
+                    } 
+                    ins_columns[next_ins_index++][k+1] = query[next_query_index++];
+                    break;
+                }
+                case 2: { // del
+                    
+                    next_target_index++;
+                    next_ins_index = 0;
+                    break;
+                }
+                case 3: { // mismatch
+                   
+                    // place mismatching query base into column
+                    result.target_columns[next_target_index++][k+1] = query[next_query_index++]; 
+                    next_ins_index = 0;
+                    break;
+                }
+                default: {
+                    std::cerr << "Unknown alignment result by edlib!" << std::endl;
+                }        
+            }            
+        }
+        
+        result.align_boundaries.emplace_back(align_start, align_end, contained);
+        
+        edlibFreeAlignResult(align); 
+    }
+    
+    return result;
+}
 
 
 
 
 Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std::string& target, 
     std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads) {
-    align_result result = align_to_target(queries, target, true, &pads);
-    for (auto& ins_pos : result.ins_at_least2) { // for all positions that have at least two queries with insertions, 
+    
+    std::vector<std::vector<std::uint32_t>> inserters; //for each position, contains positional index of queries that has ins there    
+    inserters.resize(target.size());
+    std::vector<std::uint32_t> ins_at_least2;    // target positions where there are at least 2 reads with ins
+    
+    
+    
+    align_result result = align_to_target_clip(queries, target, &pads, inserters, ins_at_least2);
+    for (auto& ins_pos : ins_at_least2) { // for all positions that have at least two queries with insertions, 
         // extract the ins segments there
         std::uint32_t position_index_longest = 0; // index in ins_segments
         std::uint32_t longest_ins_len = 0;
         
         std::vector<std::string> ins_segments;
-        auto inserters_at_pos = result.inserters[ins_pos];
+        auto inserters_at_pos = inserters[ins_pos];
         ins_segments.resize(inserters_at_pos.size());
         auto& ins_columns = result.ins_columns[ins_pos];
         for (auto& column : ins_columns) { // for each column, extract the non gap bases for the queries with ins there
@@ -374,7 +464,7 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
         inserters_at_pos.erase(inserters_at_pos.begin() + position_index_longest); //exclude longest from list of queries 
         std::string longest_ins_segment = std::move(ins_segments[position_index_longest]);
         ins_segments.erase(ins_segments.begin() + position_index_longest);
-        auto sub_result = align_to_target(ins_segments, longest_ins_segment, false);
+        auto sub_result = align_to_target_no_clip(ins_segments, longest_ins_segment);
         
         ins_columns.resize(sub_result.width);
         std::uint32_t main_column_id = 0;

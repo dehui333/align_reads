@@ -115,8 +115,10 @@ TEST(ComponentTests, align_hap) {
     align_reads::Aligner gen {reads_path, 3, 15, 5, 0.001, haplotypes_path};
     
     
-    auto result = gen.align_overlapping_plus_haplotypes(gen.sequences[0]);
-    result.alignment.print();
+    auto result1 = gen.align_overlapping_plus_haplotypes(gen.sequences[0]);
+    result1.alignment.print();
+    auto result2 = gen.align_overlapping_plus_haplotypes(gen.sequences[1]);
+    result2.alignment.print();
     
     
 }

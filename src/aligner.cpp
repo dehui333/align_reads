@@ -24,14 +24,24 @@
 #define PAD_CODE 5
 #define GAP_CODE 4 
 
+/*
+ToDO: 
+0. refactor
+1. Maintain unknown in Y for unknowns in X
+2. align hap seq's ins to seq in queries 
+3. 
+
+
+*/
+
+
+
 std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
 namespace align_reads {
 
 Data Aligner::next() {
     auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
-    // !!! why only 20 windows? 
-    // !!! keep unknown in X as unknown
     return result.produce_data(start_of_other_phase != static_cast<std::uint32_t>(-1), start_of_other_phase);
 }
 
@@ -329,6 +339,10 @@ Aligner::align_result Aligner::align_to_target(std::vector<std::string>& queries
     return result;
 }
 
+
+
+
+
 Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std::string& target, 
     std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads) {
     align_result result = align_to_target(queries, target, true, &pads);
@@ -354,8 +368,10 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
                 }
             }            
         }
-        std::uint32_t query_id_longest_ins = inserters_at_pos[position_index_longest];
-        inserters_at_pos.erase(inserters_at_pos.begin() + position_index_longest);
+        
+        // align the rest to the longest segment
+        std::uint32_t query_position_longest_ins = inserters_at_pos[position_index_longest];
+        inserters_at_pos.erase(inserters_at_pos.begin() + position_index_longest); //exclude longest from list of queries 
         std::string longest_ins_segment = std::move(ins_segments[position_index_longest]);
         ins_segments.erase(ins_segments.begin() + position_index_longest);
         auto sub_result = align_to_target(ins_segments, longest_ins_segment, false);
@@ -365,7 +381,7 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
         for(std::uint32_t i = 0; i < sub_result.target_columns.size(); i++) {
             auto& ins_column = ins_columns[main_column_id++];
             auto& sub_column = sub_result.target_columns[i];
-            ins_column[query_id_longest_ins + 1] = sub_column[0];
+            ins_column[query_position_longest_ins + 1] = sub_column[0];
             for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
                 ins_column[inserters_at_pos[j] + 1] = sub_column[j + 1];               
             }
@@ -373,7 +389,7 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
             for (std::uint32_t j = 0; j < sub_ins_columns.size(); j++) {
                 auto& ins_column = ins_columns[main_column_id++];
                 auto& sub_column = sub_ins_columns[j];
-                ins_column[query_id_longest_ins + 1] = sub_column[0];    
+                ins_column[query_position_longest_ins + 1] = sub_column[0];    
                 for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
                 ins_column[inserters_at_pos[j] + 1] = sub_column[j + 1];               
                 }    
@@ -425,7 +441,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
             std::uint32_t right_pad = (s->inflated_len - q_end) > (target_string.size() - t_end) ? (s->inflated_len - q_end) - (target_string.size() - t_end) : 0;  
             pads.emplace_back(left_pad, right_pad);
             overlapping_seqs.push_back(s->InflateData());
-            s->ReverseAndComplement();
+            if (!o.strand) s->ReverseAndComplement();
 
         }
     }
@@ -451,6 +467,8 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
         std::uint32_t best_match_id = best_match.rhs_id;
         bool best_match_strand = best_match.strand;
         
+        
+        
         std::uint32_t adjusted_begin = best_match.rhs_begin - best_match.lhs_begin;
         std::uint32_t adjusted_end = target_string.size() - best_match.lhs_end + best_match.rhs_end;
         
@@ -467,12 +485,15 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
         std::string hap_string = seq->InflateData(adjusted_begin, adjusted_end - adjusted_begin);
         pads.emplace_back(50, 50);
         overlapping_seqs.push_back(std::move(hap_string));
-        seq->ReverseAndComplement();                
+        if (!best_match_strand) seq->ReverseAndComplement();                
     }
     
     auto alignment = pseudoMSA(overlapping_seqs, target_string, pads);    
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);        
 }
+
+
+
 
 Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& target) {
 
@@ -812,6 +833,7 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
         
         // find the reads that can be placed into this window/matrix
         std::vector<std::uint32_t>& eligible_reads = window_to_reads[window_index];
+        std::sort(eligible_reads.begin(), eligible_reads.end());
         std::uint16_t num_choices = eligible_reads.size() < offset ? 0 : eligible_reads.size() - offset;
         if (num_choices == 0) continue;
         

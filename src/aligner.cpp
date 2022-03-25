@@ -24,18 +24,6 @@
 #define PAD_CODE 5
 #define GAP_CODE 4 
 
-/*
-ToDO: 
-0. refactor
-1. Maintain unknown in Y for unknowns in X
-2. align hap seq's ins to seq in queries 
-3. 
-
-
-*/
-
-
-
 std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
 namespace align_reads {
@@ -44,7 +32,6 @@ Data Aligner::next() {
     auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
     return result.produce_data(start_of_other_phase != static_cast<std::uint32_t>(-1), start_of_other_phase);
 }
-
 
 constexpr static std::uint8_t ENCODER[] = {
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255,    
@@ -608,6 +595,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
         std::string hap_string = seq->InflateData(adjusted_begin, adjusted_end - adjusted_begin);
         pads.emplace_back(50, 50);
         overlapping_seqs.push_back(std::move(hap_string));
+        infos.emplace_back(best_match_id, !best_match_strand);
         if (!best_match_strand) seq->ReverseAndComplement();                
     }
     
@@ -659,7 +647,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
             std::uint32_t right_pad = (s->inflated_len - q_end) > (target_string.size() - t_end) ? (s->inflated_len - q_end) - (target_string.size() - t_end) : 0;  
             pads.emplace_back(left_pad, right_pad);
             overlapping_reads.push_back(s->InflateData());
-            s->ReverseAndComplement();
+            if (!o.strand) s->ReverseAndComplement();
 
         }
     }
@@ -688,16 +676,6 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
     std::vector<std::vector<std::uint32_t>> window_to_reads; 
     window_to_reads.resize(num_windows);
     
-    // to store read to windows info
-    
-    /*struct windows_info {
-        std::uint32_t first_window;
-        std::uint32_t last_window;
-    };
-        
-    std::vector<windows_info> read_to_windows;
-    read_to_windows.resize(boundaries.size());
-    */
     // map window to first index in it
     std::vector<std::pair<std::uint32_t, std::uint32_t>> window_to_starts;
     window_to_starts.reserve(num_windows);
@@ -727,8 +705,6 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
             
             // check if starting point in 1st window, record read to windows and window to reads
             if (target_index == b.align_start && ins_index == 0) {
-                //auto& info = read_to_windows[b_i];
-                //info.first_window = current_window;
                 window_to_reads[current_window].push_back(b_i);                   
             }
             
@@ -736,12 +712,7 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
             if(new_window_or_first_step && target_index > b.align_start && target_index <= b.align_end) {
                 window_to_reads[window].push_back(b_i);                                               
             }
-            
-            // check if end point in last window, record only for reads to window, window to reads taken care of by above
-            //if (target_index == b.align_end && ins_index == 0) {
-            //    auto& info = read_to_windows[b_i];
-            //    info.last_window = current_window;    
-            //}            
+           
         }
         width_index++;
         if (ins_index < ins_columns[target_index].size()) {
@@ -753,127 +724,55 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
         }            
     }
     
-    
-    /*
-    // Switch to iterating through the target positions! replace below
-    
-    for (std::uint32_t k = 0; k < boundaries.size(); k++) {
-        auto& b = boundaries[k];
-        //realigning boundaries to width index
-        std::uint32_t target_align_start = b.align_start; // inclusive
-        std::uint32_t target_align_end = b.align_end;     // inclusive
-        std::uint32_t total_ins = 0;
-        for (std::uint32_t i = 0; i < target_align_start; i++) {
-            auto to_add = this->alignment.ins_columns[i].size();
-            // realign boundaries based on insertions
-            if (to_add > 0) {
-                b.align_start += to_add;
-                b.align_end += to_add;
-                total_ins += to_add;
-            }
-        }
-
-        // where this read start in each window
-        auto& starting_indices = windows_covered[k].starting_indices;
-        starting_indices.reserve((b.align_end - b.align_start + 1) / MATRIX_WIDTH + 1); // estimated num of windows covered
-
-        std::uint32_t last_window = b.align_start / MATRIX_WIDTH;
-        for (std::uint32_t i = target_align_start; i <= target_align_end; i++) {
-            // realign boundaries based on insertions
-            b.align_end += this->alignment.ins_columns[i].size();           
-            
-            // location info
-            std::uint32_t width_idx = i + total_ins; // where am I at on the alignment
-            std::uint32_t current_window =  width_idx / MATRIX_WIDTH;
-            //std::cout << "curr " << current_window << std::endl;           
-            
-            // if first or new window at a target position
-            if (current_window > last_window || i == target_align_start) {
-                // update of windows_info
-                if (i == target_align_start) windows_covered[k].first_window = current_window;  // if first window              
-                starting_indices.emplace_back(i, 0);
-                
-                // update of covering_reads
-                covering_reads[current_window].push_back(k);
-                
-                if (i != target_align_start) last_window++;    
-            }
-                                                                                      
-            for (std::uint32_t j = 1; j <= this->alignment.ins_columns[i].size(); j++) {
-                total_ins++;
-                
-                // location info
-                std::uint32_t width_idx = i + total_ins; // where am I at on the alignment
-                std::uint32_t current_window =  width_idx / MATRIX_WIDTH;
-                //std::cout << "curr " << current_window << std::endl;    
-                
-                // if new window at an ins position
-                if (current_window > last_window) {
-                    // update of windows_info                                
-                    starting_indices.emplace_back(i, j);
-                    
-                    // update of covering_reads
-                    covering_reads[current_window].push_back(k);
-                    
-                    last_window++;    
-                }
-                
-            }                 
-        }
+    auto fill_X_from_target = [&window_to_starts, &target_columns, &ins_columns] (
+        PyObject* matrix, std::uint32_t window_index, std::uint32_t row_index) {
         
-        windows_covered[k].last_window = last_window;
-
-    }
-    */
+        uint8_t* value_ptr;
+        std::uint16_t col_index = 0;
+        auto& start_index = window_to_starts[window_index];
+        std::uint32_t target_index = start_index.first;
+        std::uint32_t ins_index = start_index.second;
+        char base;    
+         
+        for ( ; col_index < MATRIX_WIDTH; col_index++) {
+            if (target_index < target_columns.size()) {
+                if (ins_index == 0) {
+                    base = target_columns[target_index][0];
+                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                    *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];    
+                    
+                } else {
+                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                    *value_ptr = GAP_CODE;                      
+                }              
+            } else {
+                value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                *value_ptr = PAD_CODE;
+                                
+            }
+                       
+            if (ins_index < ins_columns[target_index].size()) {
+                ins_index++;         
+            } else {
+                target_index++;
+                ins_index = 0;
+            }                            
+        }   
+    };
     
-
-    
-    auto fill_row = [&window_to_reads, &window_to_starts, &boundaries, &target_columns, &ins_columns] (PyObject* matrix, std::uint32_t window_index, std::uint32_t row_index, 
-        std::uint32_t read_index, bool pad, bool target) {
+    auto fill_X_from_read = [&boundaries, &target_columns, &ins_columns, &window_to_starts] (PyObject* matrix, std::uint32_t window_index,
+        std::uint32_t row_index, std::uint32_t read_index) {
         uint8_t* value_ptr;
         std::uint16_t col_index = 0;
         auto& start_index = window_to_starts[window_index];
         std::uint32_t target_index = start_index.first;
         std::uint32_t ins_index = start_index.second;
         char base;
-        // fill from target seq
-        if (target) {
-            for ( ; col_index < MATRIX_WIDTH; col_index++) {
-                if (target_index >= target_columns.size()) {
-                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
-                    *value_ptr = PAD_CODE;   
-                } else if (ins_index == 0) {
-                    base = target_columns[target_index][0];
-                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
-                    *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];    
-                } else {
-                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
-                    *value_ptr = GAP_CODE;                                        
-                }
-                
-                if (ins_index < ins_columns[target_index].size()) {
-                    ins_index++;         
-                } else {
-                    target_index++;
-                    ins_index = 0;
-                }                            
-            }
-            return;   
-        }
-        // fill with pad  
-        if (pad) {            
-            for (std::uint32_t col_index =0; col_index < MATRIX_WIDTH; col_index++) {
-                value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
-                *value_ptr = PAD_CODE;
-            }                    
-        } else {
-            // fill from non target read
+              
+        // fill from non target read
             auto& b = boundaries[read_index];
             for ( ; col_index < MATRIX_WIDTH; col_index++) {
-                if (target_index < b.align_start || target_index > b.align_end) {
-                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
-                    *value_ptr = PAD_CODE;                           
-                } else {
+                if (target_index >= b.align_start && target_index <= b.align_end) {
                     if (ins_index == 0) {
                         base = target_columns[target_index][read_index+1];
                         value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
@@ -882,7 +781,11 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
                         base = ins_columns[target_index][ins_index - 1][read_index + 1];
                         value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
                         *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];                                        
-                    }               
+                    }                   
+                                              
+                } else {
+                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                    *value_ptr = PAD_CODE;                
                 }
                 if (ins_index < ins_columns[target_index].size()) {
                     ins_index++;         
@@ -891,67 +794,86 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
                     ins_index = 0;
                 }     
             }
-            
-            /*
-            auto& starting_index = info.starting_indices[window_index - info.first_window];
-            std::uint16_t start_in_window = 0;
-			std::uint16_t end_in_window = MATRIX_WIDTH; // exclusive
-			
-            if (window_index == info.first_window) {
-				start_in_window = boundaries[read_index].align_start % MATRIX_WIDTH;
-			} 
-            
-			if (window_index == info.last_window) {
-				end_in_window = boundaries[read_index].align_end % MATRIX_WIDTH;
-			}
-            std::uint16_t col_index = start_in_window;
-            
-            
-            char base;
-            //pad the sides if needed
-            
-            for (std::uint16_t i = 0; i < start_in_window; i++) {
-                value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, i);
-                *value_ptr = PAD;                
-            }
-            for (std::uint16_t i = end_in_window; i < MATRIX_WIDTH; i++) {
-                value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, i);
-                *value_ptr = PAD;                
-            }
-            
-            
-            // if start in ins segment, finish the ins and start from next main index            
-            if (starting_index.second > 0) {
-                for (std::uint32_t i = starting_index.second; i <= this->alignment.ins_columns[starting_index.first].size(); i++) {
-                    if (col_index > end_in_window) return;
-                    base = this->alignment.ins_columns[starting_index.first][i-1][read_index + 1];
-                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index++);
-                    *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];
-
-                }                    
-                
-            }
-          
-            for (std::uint32_t target_index = starting_index.second > 0 ? starting_index.first + 1: starting_index.first; ; target_index++) {
-                if (col_index > end_in_window) return;
-                base = this->alignment.target_columns[target_index][read_index + 1];
-                value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index++);
-                *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];
-                for (std::uint32_t i = 1; i <= this->alignment.ins_columns[target_index].size(); i++) {
-                    if (col_index > end_in_window) return;
-                    base = this->alignment.ins_columns[target_index][i-1][read_index + 1];
-                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index++);
-                    *value_ptr = ENCODER[static_cast<std::uint8_t>(base)]; 
-                }               
-            }
-            */
-        }       
+        
     };
     
-    std::uint8_t offset = produce_labels ? 2 : 0; // to exclude haplotype sequences
-    std::uint8_t target_hap = this->target_id < start_of_other_phase ? 0 : 1;
+    auto fill_Y_for_target = [&window_to_starts, &target_columns, &ins_columns, this, start_of_other_phase] (
+        PyObject* matrix, std::uint32_t window_index, std::uint32_t row_index) {
+        
+        std::uint8_t hap = this->target_id < start_of_other_phase ? 0 : 1;    
+        uint8_t* value_ptr;
+        std::uint16_t col_index = 0;
+        auto& start_index = window_to_starts[window_index];
+        std::uint32_t target_index = start_index.first;
+        std::uint32_t ins_index = start_index.second;
+        char base;    
+        for ( ; col_index < MATRIX_WIDTH; col_index++) {
+            if (target_index < target_columns.size()) {
+                if (ins_index == 0) {
+                    base = target_columns[target_index][this->infos.size() - 2 + hap + 1];
+                                     
+                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                    *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];    
+                    
+                } else {
+                    base = ins_columns[target_index][ins_index - 1][this->infos.size() - 2 + hap + 1];
+                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                    *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];                      
+                }              
+            } else {
+                value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                *value_ptr = PAD_CODE;
+                                
+            }
+                       
+            if (ins_index < ins_columns[target_index].size()) {
+                ins_index++;         
+            } else {
+                target_index++;
+                ins_index = 0;
+            }                            
+        }   
+    };
     
-    // put read segments into windows, padd unfilled for now
+    auto fill_Y_for_read = [&window_to_starts, &boundaries, &target_columns, &ins_columns, this, start_of_other_phase] (PyObject* matrix,
+        std::uint32_t window_index, std::uint32_t row_index, std::uint32_t read_index) {
+        uint8_t* value_ptr;
+        std::uint16_t col_index = 0;
+        auto& start_index = window_to_starts[window_index];
+        std::uint32_t target_index = start_index.first;
+        std::uint32_t ins_index = start_index.second;
+        char base;
+        std::uint8_t hap = this->infos[read_index].id < start_of_other_phase ? 0 : 1;       
+        // fill from non target read
+            auto& b = boundaries[read_index];
+            for ( ; col_index < MATRIX_WIDTH; col_index++) {
+                if (target_index >= b.align_start && target_index <= b.align_end) {
+                    if (ins_index == 0) {
+                        base = target_columns[target_index][boundaries.size() - 2 + hap +1];
+                        value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                        *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];    
+                    } else {
+                        base = ins_columns[target_index][ins_index - 1][boundaries.size() - 2 + hap +1];
+                        value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                        *value_ptr = ENCODER[static_cast<std::uint8_t>(base)];                                        
+                    }                   
+                                              
+                } else {
+                    value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row_index, col_index);
+                    *value_ptr = PAD_CODE;                
+                }
+                if (ins_index < ins_columns[target_index].size()) {
+                    ins_index++;         
+                } else {
+                    target_index++;
+                    ins_index = 0;
+                }     
+            }
+        
+    };
+
+    std::uint8_t offset = produce_labels ? 2 : 0; // to exclude haplotype sequences
+    
     for (std::uint32_t window_index = 0; window_index < num_windows; window_index++) {
         
         // find the reads that can be placed into this window/matrix
@@ -959,38 +881,26 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
         std::sort(eligible_reads.begin(), eligible_reads.end());
         std::uint16_t num_choices = eligible_reads.size() < offset ? 0 : eligible_reads.size() - offset;
         if (num_choices == 0) continue;
-        
-        // to record the chosen reads' ids
-        std::vector<std::uint32_t> chosen_ids;
-        if (produce_labels) chosen_ids.reserve(MATRIX_HEIGHT - 1);
 	    
         // fill 1st row of matrix with target
         auto x = PyArray_SimpleNew(2, dims, NPY_UINT8);        
-		fill_row(x, window_index, 0, 0, false, true);
+		fill_X_from_target(x, window_index, 0);
         
+        PyObject* y = nullptr;
+        if (produce_labels) {
+            y = PyArray_SimpleNew(2, dims, NPY_UINT8);
+            fill_Y_for_target(y, window_index, 0);
+        }
         // fill the others with sampled reads
         for (std::uint32_t row_index = 1; row_index < MATRIX_HEIGHT; row_index++) {           
             auto randomn = rand() % num_choices;
-            fill_row(x, window_index, row_index, eligible_reads[randomn], false, false);
-            if (produce_labels) chosen_ids.push_back(this->infos[randomn].id);
+            fill_X_from_read(x, window_index, row_index, eligible_reads[randomn]);
+            if (produce_labels) fill_Y_for_read(y, window_index, row_index, eligible_reads[randomn]);
         }
         
         // output the x matrix    
         d.X.push_back(x);
-        
-        
-        if (produce_labels) {
-            // fill with hap sequences
-            auto y = PyArray_SimpleNew(2, dims, NPY_UINT8);
-            fill_row(y, window_index, 0, boundaries.size() - 2  + target_hap, false, false);    
-            
-            for (std::uint32_t row_index = 1; row_index < MATRIX_HEIGHT; row_index++) {           
-                std::uint8_t hap = chosen_ids[row_index - 1] < start_of_other_phase ? 0 : 1;
-                fill_row(y, window_index, row_index, boundaries.size() - 2 + hap, false, false);
-                
-            }    
-            d.Y.push_back(y);   
-        }
+        if (produce_labels) d.Y.push_back(y);
     }
     
     

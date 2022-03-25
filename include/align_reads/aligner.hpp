@@ -80,7 +80,7 @@ private:
     struct align_overlapping_result {
         
         align_result alignment;
-        std::vector<seq_info> infos;
+        std::vector<seq_info> infos; // stores for all the queries, including hap sequences
         std::uint32_t target_id;
         
         align_overlapping_result() = default;

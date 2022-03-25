@@ -23,6 +23,8 @@
 #define MATRIX_WIDTH 20
 #define PAD_CODE 5
 #define GAP_CODE 4 
+#define MIN_OVLP 1
+
 
 std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
@@ -32,10 +34,13 @@ Data Aligner::next() {
     bool has_hap = !haplotypes_sequences.empty();
     
     if (has_hap) {
+        
         auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
+        if (!result.valid) return Data();
         return result.produce_data(has_hap, start_of_other_phase);
     } else {
         auto result = align_overlapping(sequences[num_processed++]);
+        if (!result.valid) return Data();
         return result.produce_data(has_hap, start_of_other_phase);
     }    
 }
@@ -525,6 +530,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
     
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
+    if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };
@@ -539,7 +545,6 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
     std::vector<std::pair<std::uint32_t, std::uint32_t>> pads;
     pads.reserve(overlaps.size() + 2);
     std::uint64_t last_id = -1;
-
     for (auto& o : overlaps) {
         if (o.rhs_id != last_id) {
             last_id = o.rhs_id;
@@ -567,6 +572,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
         // find overlap with each haplotype
         auto& minimizers = haplotypes_minimizer_engines[i];
         std::vector<biosoup::Overlap> overlaps = minimizers.Map(target, true, false, true);
+        if (overlaps.empty()) return align_overlapping_result();
         std::uint32_t best_index = 0;
         std::uint32_t best_score = 0;
         if (overlaps.size() > 1) {
@@ -621,6 +627,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
+    if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };

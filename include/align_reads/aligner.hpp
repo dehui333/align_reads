@@ -82,8 +82,9 @@ private:
         align_result alignment;
         std::vector<seq_info> infos; // stores for all the queries, including hap sequences
         std::uint32_t target_id;
+        bool valid = true;
         
-        align_overlapping_result() = default;
+        align_overlapping_result() : valid(false) {};
         align_overlapping_result(align_result&& alignment, std::vector<seq_info>&& infos, std::uint32_t& target_id) 
             : alignment(std::move(alignment)), infos(std::move(infos)), target_id(target_id) {};
         align_overlapping_result(align_overlapping_result&& r) : alignment(std::move(r.alignment)), infos(std::move(r.infos)),

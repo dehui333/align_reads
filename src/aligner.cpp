@@ -25,6 +25,13 @@
 #define GAP_CODE 4 
 #define MIN_OVLP 10
 
+/*
+ * To Do: 
+ * 1. false positive overlaps
+ * 
+ *
+ */
+
 
 std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
@@ -41,6 +48,7 @@ Data Aligner::next() {
     } else {
         auto result = align_overlapping(sequences[num_processed++]);
         if (!result.valid) return Data();
+	result.alignment.print();
         return result.produce_data(has_hap, start_of_other_phase);
     }    
 }
@@ -448,8 +456,8 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
     std::vector<std::vector<std::uint32_t>> inserters; //for each position, contains positional index of queries that has ins there    
     inserters.resize(target.size());
     std::vector<std::uint32_t> ins_at_least2;    // target positions where there are at least 2 reads with ins
-    
     align_result result = align_to_target_clip(queries, target, &pads, inserters, ins_at_least2, has_hap);
+    
     for (auto& ins_pos : ins_at_least2) { // for all positions that have at least two queries with insertions, 
         // extract the ins segments, and record the longest one  
         std::uint32_t position_index_longest = 0; // index in ins_segments
@@ -480,8 +488,15 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
         ins_segments.erase(ins_segments.begin() + position_index_longest);
         auto sub_result = align_to_target_no_clip(ins_segments, longest_ins_segment, has_hap);
         
+        std::uint32_t t = ins_columns.size(); 
+
         // get more ins columns for a target position if needed
         ins_columns.resize(sub_result.width);
+	result.width += sub_result.width - t;
+	for (; t < ins_columns.size(); t++) {
+	    ins_columns[t].resize(queries.size() + 1 ,'_');	
+	}
+
         std::uint32_t to_column_id = 0;
         
         // if there is ins to the left of target...
@@ -504,19 +519,28 @@ Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std:
             
             // traversing the from columns 
             to_column[query_position_longest_ins + 1] = from_column[0]; // the target is the top row of the alignment
-            for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
+            
+	    for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
                 to_column[inserters_at_pos[j] + 1] = from_column[j + 1];             
             }
+
             auto& sub_ins_columns = sub_result.ins_columns[i];
-            for (std::uint32_t j = 0; j < sub_ins_columns.size(); j++) {
+            
+	    for (std::uint32_t j = 0; j < sub_ins_columns.size(); j++) {
                 auto& to_column = ins_columns[to_column_id++];
-                auto& from_column = sub_ins_columns[j];
-                to_column[query_position_longest_ins + 1] = from_column[0];    
-                for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
+                
+		auto& from_column = sub_ins_columns[j];
+                
+		to_column[query_position_longest_ins + 1] = from_column[0];    
+                
+		for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
                     to_column[inserters_at_pos[j] + 1] = from_column[j + 1];               
                 }    
-            }            
-        }                  
+           
+	    }
+            	    
+        }
+		
     }
 
     
@@ -624,7 +648,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     // get target string 
     std::string target_string = target->InflateData();      
     std::uint32_t target_id = target->id;
-    
+    std::cout << "own len " << target->inflated_len << std::endl;
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
     std::cout << "ov num " << overlaps.size() << std::endl;
@@ -645,6 +669,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     std::uint64_t last_id = -1;
 
     for (auto& o : overlaps) {
+	if (overlapping_reads.size() == MATRIX_HEIGHT) break;    
         if (o.rhs_id != last_id) {
             last_id = o.rhs_id;
             infos.emplace_back(o.rhs_id, !o.strand);
@@ -959,24 +984,33 @@ void Aligner::align_result::print() {
             }
         }     
     }
-    
     for (std::uint32_t i = 0; i < this->target_columns.size(); i++) { // for each target position        
-        auto& column = this->target_columns[i];
+	auto& column = this->target_columns[i];
+	
+
         auto& block = output_blocks[col_index++/block_width];
-        for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
-            if (k%2==0) { 
+	for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
+	    
+            if (k%2==0) {
                 block[k].push_back(column[k/2]);
+
                 if (k != 0) {
+			
                     if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
-                        block[k-1].push_back('!');
+                        
+			block[k-1].push_back('!');
                     } else {
+			    
                         block[k-1].push_back(' ');
                     }
+
                 }
             }        
         }
+
         auto& ins_cols = this->ins_columns[i];
-        for (std::uint32_t j = 0; j < ins_cols.size(); j++) { // for each ins column here
+        
+	for (std::uint32_t j = 0; j < ins_cols.size(); j++) { // for each ins column here
             auto& block = output_blocks[col_index++/block_width];
             auto& ins_column = ins_cols[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
@@ -992,8 +1026,10 @@ void Aligner::align_result::print() {
                 } 
             }
         }
+
            
     }
+
     std::uint32_t counter = 0;
     //printing
     for (auto& block: output_blocks) {

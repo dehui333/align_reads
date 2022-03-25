@@ -112,7 +112,7 @@ TEST(ComponentTests, all_inputs) {
 TEST(ComponentTests, align_hap) {
     const char* reads_path[2] = {"../test_data/fake_reads0.fasta", "../test_data/fake_reads1.fasta"};
     const char* haplotypes_path[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
-    align_reads::Aligner gen {reads_path, 3, 15, 10, 0.0002, haplotypes_path};
+    align_reads::Aligner gen {reads_path, 3, 15, 5, 0.001, haplotypes_path};
     
     for (int i = 0; i < 7; i++) {
         auto result1 = gen.align_overlapping_plus_haplotypes(gen.sequences[i]);

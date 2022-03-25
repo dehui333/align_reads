@@ -37,9 +37,9 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
             return NULL;
         }
         if (haplotypes_path[0] == nullptr || haplotypes_path[1] == nullptr) {
-            gen = new align_reads::Aligner(reads_path, 3, 15, 5, 0.001, nullptr);
+            gen = new align_reads::Aligner(reads_path, 3, 15, 10, 0.0002, nullptr);
         } else {
-            gen = new align_reads::Aligner(reads_path, 3, 15, 5, 0.001, haplotypes_path);        
+            gen = new align_reads::Aligner(reads_path, 3, 15, 10, 0.0002, haplotypes_path);        
             
         }      
     }
@@ -48,9 +48,7 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
 
 // Module method definitions
 static PyObject* generate_features_cpp(PyObject *self, PyObject *args) {
-    
     align_reads::Data data = gen->next();
-	
 	// Creates tuple to return to python level
 	PyObject* return_tuple = PyTuple_New(2);
 	

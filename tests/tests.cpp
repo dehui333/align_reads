@@ -85,12 +85,12 @@ TEST(ComponentTests, align_overlapping) {
     const char* p[2] = {"../test_data/reads_align.fasta", nullptr};
     align_reads::Aligner gen_fasta {p, 3, 15, 5, 0.001};
     auto result = gen_fasta.align_overlapping(gen_fasta.sequences[0]);
-    result.alignment.print();
+    if (result.valid) result.alignment.print();
     
     const char* p2[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
     align_reads::Aligner gen_fasta2 {p2, 3, 15, 5, 0.001};
     auto result2 = gen_fasta2.align_overlapping(gen_fasta2.sequences[0]);
-    result2.alignment.print();
+    if (result2.valid) result2.alignment.print();
 }
 
 TEST(ComponentTests, all_inputs) {
@@ -104,7 +104,7 @@ TEST(ComponentTests, all_inputs) {
     EXPECT_EQ(gen.haplotypes_sequences[1].size(), 1);
     
     auto result = gen.align_overlapping(gen.sequences[0]);
-    result.alignment.print();
+    if (result.valid) result.alignment.print();
  
 
 }
@@ -112,13 +112,13 @@ TEST(ComponentTests, all_inputs) {
 TEST(ComponentTests, align_hap) {
     const char* reads_path[2] = {"../test_data/fake_reads0.fasta", "../test_data/fake_reads1.fasta"};
     const char* haplotypes_path[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
-    align_reads::Aligner gen {reads_path, 3, 15, 5, 0.001, haplotypes_path};
+    align_reads::Aligner gen {reads_path, 3, 15, 10, 0.0002, haplotypes_path};
     
     
     auto result1 = gen.align_overlapping_plus_haplotypes(gen.sequences[0]);
-    result1.alignment.print();
+    if (result1.valid) result1.alignment.print();
     auto result2 = gen.align_overlapping_plus_haplotypes(gen.sequences[1]);
-    result2.alignment.print();
+    if (result2.valid) result2.alignment.print();
     
     
 }

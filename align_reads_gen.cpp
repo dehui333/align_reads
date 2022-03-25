@@ -16,8 +16,8 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
         
         if (!PyArg_ParseTuple(args, "OO", &read_paths_list, &hap_paths_list)) return NULL;
        
-        if (PyList_Check(read_paths_list) && PyList_Size(read_paths_list) == 2 && PyList_Check(hap_paths_list)) {
-            for (Py_ssize_t i = 0; i < 2; i++) {
+        if (PyList_Check(read_paths_list) && PyList_Size(read_paths_list) >= 1 && PyList_Check(hap_paths_list)) {
+            for (Py_ssize_t i = 0; i < PyList_Size(read_paths_list); i++) {
                 item = PyList_GetItem(read_paths_list, i);
                 if (!item) return NULL;
                 item = PyUnicode_AsEncodedString(item, "UTF-8", "strict");

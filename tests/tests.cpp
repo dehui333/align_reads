@@ -114,11 +114,13 @@ TEST(ComponentTests, align_hap) {
     const char* haplotypes_path[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
     align_reads::Aligner gen {reads_path, 3, 15, 10, 0.0002, haplotypes_path};
     
-    
-    auto result1 = gen.align_overlapping_plus_haplotypes(gen.sequences[0]);
-    if (result1.valid) result1.alignment.print();
-    auto result2 = gen.align_overlapping_plus_haplotypes(gen.sequences[1]);
-    if (result2.valid) result2.alignment.print();
-    
+    for (int i = 0; i < 7; i++) {
+        auto result1 = gen.align_overlapping_plus_haplotypes(gen.sequences[i]);
+        if (result1.valid) {
+            result1.alignment.print();
+        } else {
+            std::cout << i << " is invalid " << std::endl;
+        }
+    }
     
 }

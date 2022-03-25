@@ -15,7 +15,7 @@ bioparser/CMakeLists.txt:
 build/libalign_reads.a: build/Makefile src/aligner.cpp
 	cmake --build build/
 
-build/Makefile:
+build/Makefile: bioparser/CMakeLists.txt
 	. align_reads_venv/bin/activate; cmake -S . -B build/
 
 

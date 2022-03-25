@@ -7,7 +7,10 @@ align_reads_venv/bin/activate:
 	python3 -m venv align_reads_venv
 	. align_reads_venv/bin/activate; pip install pip --upgrade; pip install -r requirements.txt
 
-libalign_reads.a: build/libalign_reads.a venv
+libalign_reads.a: build/libalign_reads.a venv bioparser/CMakeLists.txt
+
+bioparser/CMakeLists.txt: 
+	git submodule init && git submodule update
 
 build/libalign_reads.a: build/Makefile src/aligner.cpp
 	cmake --build build/

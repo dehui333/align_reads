@@ -19,11 +19,11 @@
 #include "ram/minimizer_engine.hpp"
 #include "thread_pool/thread_pool.hpp"
 
-#define MATRIX_HEIGHT 5
-#define MATRIX_WIDTH 20
+#define MATRIX_HEIGHT 10
+#define MATRIX_WIDTH 30
 #define PAD_CODE 5
 #define GAP_CODE 4 
-#define MIN_OVLP 1
+#define MIN_OVLP 10
 
 
 std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
@@ -627,6 +627,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
+    std::cout << "ov num " << overlaps.size() << std::endl;
     if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
@@ -661,6 +662,8 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
             std::uint32_t right_pad = (s->inflated_len - q_end) > (target_string.size() - t_end) ? (s->inflated_len - q_end) - (target_string.size() - t_end) : 0;  
             pads.emplace_back(left_pad, right_pad);
             overlapping_reads.push_back(s->InflateData());
+	    std::cout << "len " << s->inflated_len << std::endl;
+	    std::cout << "left pad " << left_pad << " right pad " << right_pad << std::endl;
             if (!o.strand) s->ReverseAndComplement();
 
         }

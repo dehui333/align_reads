@@ -29,8 +29,15 @@ std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 namespace align_reads {
 
 Data Aligner::next() {
-    auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
-    return result.produce_data(start_of_other_phase != static_cast<std::uint32_t>(-1), start_of_other_phase);
+    bool has_hap = !haplotypes_sequences.empty();
+    
+    if (has_hap) {
+        auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
+        return result.produce_data(has_hap, start_of_other_phase);
+    } else {
+        auto result = align_overlapping(sequences[num_processed++]);
+        return result.produce_data(has_hap, start_of_other_phase);
+    }    
 }
 
 constexpr static std::uint8_t ENCODER[] = {

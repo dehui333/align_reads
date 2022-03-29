@@ -37,9 +37,9 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
             return NULL;
         }
         if (haplotypes_path[0] == nullptr || haplotypes_path[1] == nullptr) {
-            gen = new align_reads::Aligner(reads_path, 3, 15, 5, 0.001, nullptr);
+            gen = new align_reads::Aligner(reads_path, 3, 20, 5, 0.001, nullptr);
         } else {
-            gen = new align_reads::Aligner(reads_path, 3, 15, 5, 0.001, haplotypes_path);        
+            gen = new align_reads::Aligner(reads_path, 3, 20, 5, 0.001, haplotypes_path);        
             
         }      
     }

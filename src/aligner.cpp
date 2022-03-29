@@ -23,13 +23,16 @@
 #define MATRIX_WIDTH 30
 #define PAD_CODE 5
 #define GAP_CODE 4 
-#define MIN_OVLP 10
+#define MIN_OVLP 8
 
 /*
  * To Do: 
- * 1. false positive overlaps
- * 
- *
+ * 1. tweak algnment parameter to reduce false positive? Is it possible? Will it be more costly? There is no way to filter out reads that map to multiple
+ * positions on some draft!
+ * 2. quick align in far away from reported overlap region to get a confidence score
+ * 3. filter reads based on 1. confidence score of overlap 2. if the read protrude out from the target(need to pad-need copy string,
+ *  cannot skip read from queue)
+ * 4. when doing the main alignment, only take selective region of target(and query? can do without pad) and piece together alignment
  */
 
 
@@ -669,7 +672,15 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     std::uint64_t last_id = -1;
 
     for (auto& o : overlaps) {
-	if (overlapping_reads.size() == MATRIX_HEIGHT) break;    
+	std::cout << "id " << o.rhs_id << std::endl;    
+	std::cout << "lhs begin " << o.lhs_begin << " lhs_end " << o.lhs_end << std::endl; 
+        std::cout << "rhs begin " << o.rhs_begin << " rhs_end " << o.rhs_end << std::endl;	
+	if (!o.strand) {
+	    std::cout << "reverse complement " << std::endl;
+	}    
+
+	
+	if (overlapping_reads.size() == MATRIX_HEIGHT) break;	
         if (o.rhs_id != last_id) {
             last_id = o.rhs_id;
             infos.emplace_back(o.rhs_id, !o.strand);
@@ -689,10 +700,18 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
             overlapping_reads.push_back(s->InflateData());
 	    std::cout << "len " << s->inflated_len << std::endl;
 	    std::cout << "left pad " << left_pad << " right pad " << right_pad << std::endl;
+	    std::cout << "----------------------" << std::endl;
+	    std::vector<std::string> temp;
+	    temp.push_back(s->InflateData(q_begin, q_end-q_begin+ 1));
+	    std::vector<std::pair<std::uint32_t, std::uint32_t>> temp2;
+            std::string temp3 =  target->InflateData(t_begin, t_end - t_begin + 1);
+	    auto r = pseudoMSA(temp,temp3,  temp2, false);
+	    r.print(); 
             if (!o.strand) s->ReverseAndComplement();
 
         }
     }
+    std::cout << "accepted num: " << overlapping_reads.size() << std::endl;
     
     auto alignment = pseudoMSA(overlapping_reads, target_string, pads, false);    
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
@@ -963,18 +982,27 @@ void Aligner::align_result::print() {
             row.reserve(width);
         }
     }
+    std::vector<std::uint32_t> start_of_blocks;
+    start_of_blocks.reserve(num_blocks);
+    start_of_blocks.push_back(0);
     std::uint32_t col_index = 0;
+    std::uint32_t current_block_index = 0;
     if (this->ins_columns.size() > this->target_columns.size()) {
         
         auto& ins_cols = this->ins_columns[this->target_columns.size()];
         for (std::uint32_t j = 0; j < ins_cols.size() ; j++) { // for each ins column here
             auto& ins_column = ins_cols[j];
-            auto& block = output_blocks[col_index++/block_width];
+	    std::uint32_t block_index = col_index++/block_width;
+            auto& block = output_blocks[block_index];
+	    if (block_index > current_block_index) {
+	        current_block_index++;
+		start_of_blocks.push_back(0);	
+	    }
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
                 if (k%2==0) { 
                     block[k].push_back(ins_column[k/2]);
                     if (k != 0) {
-                        if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
+                        if (/*block[k].back() != '_' && block[k-2].back() != '_' &&*/ block[k].back() != block[k-2].back()) {
                             block[k-1].push_back('!');
                         } else {
                             block[k-1].push_back(' ');
@@ -987,8 +1015,13 @@ void Aligner::align_result::print() {
     for (std::uint32_t i = 0; i < this->target_columns.size(); i++) { // for each target position        
 	auto& column = this->target_columns[i];
 	
+	std::uint32_t block_index = col_index++/block_width;
+        auto& block = output_blocks[block_index];
+        if (block_index > current_block_index) {
+	        current_block_index++;
+		start_of_blocks.push_back(i);	
+	}
 
-        auto& block = output_blocks[col_index++/block_width];
 	for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
 	    
             if (k%2==0) {
@@ -996,7 +1029,7 @@ void Aligner::align_result::print() {
 
                 if (k != 0) {
 			
-                    if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
+                    if (/*block[k].back() != '_' && block[k-2].back() != '_' &&*/ block[k].back() != block[k-2].back()) {
                         
 			block[k-1].push_back('!');
                     } else {
@@ -1011,13 +1044,19 @@ void Aligner::align_result::print() {
         auto& ins_cols = this->ins_columns[i];
         
 	for (std::uint32_t j = 0; j < ins_cols.size(); j++) { // for each ins column here
-            auto& block = output_blocks[col_index++/block_width];
+	    std::uint32_t block_index = col_index++/block_width;	
+            auto& block = output_blocks[block_index];
+            if (block_index > current_block_index) {
+	        current_block_index++;
+                start_of_blocks.push_back(i);	
+	    }
+
             auto& ins_column = ins_cols[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
                 if (k%2==0) {
                     block[k].push_back(ins_column[k/2]);
                     if (k != 0) {
-                        if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
+                        if (/*block[k].back() != '_' && block[k-2].back() != '_' &&*/ block[k].back() != block[k-2].back()) {
                             block[k-1].push_back('!');
                         } else {
                             block[k-1].push_back(' ');
@@ -1033,8 +1072,7 @@ void Aligner::align_result::print() {
     std::uint32_t counter = 0;
     //printing
     for (auto& block: output_blocks) {
-        std::cout << counter << std::endl;
-        counter += block_width;
+        std::cout << start_of_blocks[counter++] << std::endl;
         for (auto& row: block) {
             std::cout << row << std::endl;       
         }

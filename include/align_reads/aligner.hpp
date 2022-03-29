@@ -126,7 +126,7 @@ public:
     Aligner(const char** sequences_file_paths, std::uint32_t num_threads,
         std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
      
-    //Data next();
+    Data next();
     
     //bool has_next();
     

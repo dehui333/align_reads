@@ -20,10 +20,10 @@
 #include "thread_pool/thread_pool.hpp"
 
 #define MATRIX_HEIGHT 10
-#define MATRIX_WIDTH 30
+#define MATRIX_WIDTH 20
 #define PAD_CODE 5
 #define GAP_CODE 4 
-#define MIN_OVLP 8
+#define MIN_OVLP 1
 
 /*
  * To Do: 
@@ -39,7 +39,7 @@
 std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
 namespace align_reads {
-/*
+
 Data Aligner::next() {
     bool has_hap = !haplotypes_sequences.empty();
     
@@ -47,14 +47,15 @@ Data Aligner::next() {
         
         auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
         if (!result.valid) return Data();
+        result.alignment.print();
         return result.produce_data(has_hap, start_of_other_phase);
     } else {
         auto result = align_overlapping(sequences[num_processed++]);
         if (!result.valid) return Data();
-	result.alignment.print();
+        result.alignment.print();
         return result.produce_data(has_hap, start_of_other_phase);
     }    
-}*/
+}
 
 constexpr static std::uint8_t ENCODER[] = {
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255,    
@@ -209,7 +210,7 @@ Aligner::align_result Aligner::align_to_target_clip(std::vector<std::string>& qu
         std::uint32_t next_query_index = 0; // upcoming query position
         std::uint32_t next_target_index = align.startLocations[0] + left_clip; // upcoming target position
         std::uint32_t next_ins_index = 0; // upcoming ins index for the current segment
-        std::uint32_t align_start = next_target_index + left_clip;
+        std::uint32_t align_start = next_target_index;
         std::uint32_t align_end = static_cast<std::uint32_t>(align.endLocations[0] + left_clip);
         bool contained = true;
         
@@ -499,7 +500,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
     //std::cout << "ov num " << overlaps.size() << std::endl;
-    //if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
+    if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };
@@ -585,7 +586,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
     std::uint32_t target_id = target->id;
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
-    //if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
+    if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };
@@ -695,7 +696,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
 
 
 
-/*
+
 
 Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::uint32_t start_of_other_phase) {
     
@@ -948,7 +949,7 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
        
     return d;
 }
-*/
+
 void Aligner::align_result::print() {
     std::uint32_t block_width = 100;
     std::vector<std::vector<std::string>> output_blocks;

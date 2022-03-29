@@ -98,26 +98,27 @@ private:
         
         Data produce_data(bool produce_labels=false, std::uint32_t start_of_other_phase=0);
     };
-    
-
-    
-    
-    align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
+        
     
     // align queries to target
     static align_result align_to_target_clip(std::vector<std::string>& queries, std::string& target,
-        std::vector<std::pair<std::uint32_t, std::uint32_t>>* pads, std::vector<std::vector<std::uint32_t>>& inserters,
+        std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, std::vector<std::vector<std::uint32_t>>& inserters,
         std::vector<std::uint32_t>& ins_at_least2, bool has_hap);
     
     static align_result align_to_target_no_clip(std::vector<std::string>& queries, std::string& target, bool has_hap);
     
-    align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
-    
     // align queries to target, and also try to align the ins segments
     static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
-        std::vector<std::pair<std::uint32_t, std::uint32_t>>& pads, bool has_hap=false);
+        std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, bool has_hap=false);
+    
+    align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
+    
+    align_overlapping_result align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid>& seq);
+    
+    
+    
         
-
+    
 
 public:
    
@@ -125,9 +126,9 @@ public:
     Aligner(const char** sequences_file_paths, std::uint32_t num_threads,
         std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
      
-    Data next();
+    //Data next();
     
-    bool has_next();
+    //bool has_next();
     
 };
 

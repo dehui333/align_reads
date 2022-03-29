@@ -13,7 +13,6 @@
 
 const char* reads_fastq_path = "../test_data/reads.fastq";
 const char* reads_fasta_path = "../test_data/reads.fasta";
-const char* overlap_paf_path = "../test_data/overlap.paf";
 
 
 // Demonstrate some basic assertions.
@@ -75,8 +74,9 @@ TEST(BasicTests, Construct_Generator_Fastq) {
 
 TEST(ComponentTests, aligning) {
     std::string target = "GACTAGGAC";
-    std::vector<std::string> queries = {"AAGACTTCACGGTACAA", "GACTCAGGGAC"};
+    std::vector<std::string> queries = {"GACTAGGAC"};
     std::vector<std::pair<std::uint32_t, std::uint32_t>> v;
+    v.emplace_back(0, 0);
     auto result = align_reads::Aligner::pseudoMSA(queries, target, v);    
     result.print();
 }

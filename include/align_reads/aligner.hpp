@@ -14,7 +14,9 @@
 #include <vector> 
 
 #include "biosoup/nucleic_acid.hpp"
+#include "edlib.h"
 #include "ram/minimizer_engine.hpp"
+#include "thread_pool/thread_pool.hpp"
 
 namespace align_reads {
 
@@ -27,6 +29,7 @@ class Aligner {
 
 private:    
     std::vector<std::unique_ptr<biosoup::NucleicAcid>> sequences;
+    std::shared_ptr<thread_pool::ThreadPool> pool;
     ram::MinimizerEngine minimizer_engine;
     std::vector<std::uint32_t> id_to_pos_index;
     
@@ -103,13 +106,13 @@ private:
     // align queries to target
     static align_result align_to_target_clip(std::vector<std::string>& queries, std::string& target,
         std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, std::vector<std::vector<std::uint32_t>>& inserters,
-        std::vector<std::uint32_t>& ins_at_least2, bool has_hap);
+        std::vector<std::uint32_t>& ins_at_least2, bool has_hap, std::vector<EdlibAlignResult>& edlib_results);
     
     static align_result align_to_target_no_clip(std::vector<std::string>& queries, std::string& target, bool has_hap);
     
     // align queries to target, and also try to align the ins segments
     static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
-        std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, bool has_hap=false);
+        std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, std::vector<EdlibAlignResult>& edlib_results, bool has_hap=false);
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
     
@@ -123,10 +126,13 @@ private:
 public:
    
     
-    Aligner(const char** sequences_file_paths, std::uint32_t num_threads,
+    Aligner(const char** sequences_file_paths, std::shared_ptr<thread_pool::ThreadPool>& pool,
         std::uint8_t kmer_len, std::uint8_t window_len, double freq, const char** haplotypes_path=nullptr);
      
     Data next();
+
+    void test();
+    void test2();
     
     //bool has_next();
     

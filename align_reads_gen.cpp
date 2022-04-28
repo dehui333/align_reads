@@ -8,6 +8,8 @@
 
 static align_reads::Aligner *gen = nullptr;
 
+#define THREADS 20
+
 static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
     if (gen == nullptr) {
         PyObject *read_paths_list, *hap_paths_list, *item;
@@ -36,10 +38,12 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
         } else {
             return NULL;
         }
+	
+	std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(THREADS); 
         if (haplotypes_path[0] == nullptr || haplotypes_path[1] == nullptr) {
-            gen = new align_reads::Aligner(reads_path, 3, 20, 5, 0.001, nullptr);
+            gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.001, nullptr);
         } else {
-            gen = new align_reads::Aligner(reads_path, 3, 20, 5, 0.001, haplotypes_path);        
+            gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.001, haplotypes_path);        
             
         }      
     }
@@ -49,23 +53,23 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
 // Module method definitions
 static PyObject* generate_features_cpp(PyObject *self, PyObject *args) {
     align_reads::Data data = gen->next();
-	// Creates tuple to return to python level
-	PyObject* return_tuple = PyTuple_New(2);
+    // Creates tuple to return to python level
+    PyObject* return_tuple = PyTuple_New(2);
+
+    // Create lists of matrices 
+    PyObject* X_list = PyList_New(data.X.size());
+    PyObject* Y_list = PyList_New(data.Y.size());
+
+
+    // fill in lists
+    for (std::uint32_t i = 0; i < data.X.size(); i++) {
+	PyList_SetItem(X_list, i, data.X[i]);				
+    }
+    for (std::uint32_t i = 0; i < data.Y.size(); i++) {
+	PyList_SetItem(Y_list, i, data.Y[i]);				
+    }
 	
-	// Create lists of matrices 
-	PyObject* X_list = PyList_New(data.X.size());
-	PyObject* Y_list = PyList_New(data.Y.size());
-    
-    
-	// fill in lists
-	for (std::uint32_t i = 0; i < data.X.size(); i++) {
-		PyList_SetItem(X_list, i, data.X[i]);				
-	}
-	for (std::uint32_t i = 0; i < data.Y.size(); i++) {
-		PyList_SetItem(Y_list, i, data.Y[i]);				
-	}
-	
-	PyTuple_SetItem(return_tuple, 0, X_list);
+    PyTuple_SetItem(return_tuple, 0, X_list);
     PyTuple_SetItem(return_tuple, 1, Y_list);
 	
     return return_tuple;

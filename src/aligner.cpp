@@ -10,6 +10,8 @@
 #include <time.h>       /* time */
 #include <unordered_set>
 #include <utility>
+#include <chrono>
+#include <set>
 
 #include "align_reads/aligner.hpp"
 #include "bioparser/fasta_parser.hpp"
@@ -20,19 +22,16 @@
 #include "thread_pool/thread_pool.hpp"
 
 #define MATRIX_HEIGHT 10
-#define MATRIX_WIDTH 20
+#define MATRIX_WIDTH 200
 #define PAD_CODE 5
 #define GAP_CODE 4 
-#define MIN_OVLP 1
-
+#define MIN_GOOD_OVLP_RATIO 0.95
+#define EXTRACT nanosim_extract
 /*
  * To Do: 
- * 1. tweak algnment parameter to reduce false positive? Is it possible? Will it be more costly? There is no way to filter out reads that map to multiple
- * positions on some draft!
- * 2. quick align in far away from reported overlap region to get a confidence score
- * 3. filter reads based on 1. confidence score of overlap 2. if the read protrude out from the target(need to pad-need copy string,
- *  cannot skip read from queue)
- * DONE ? 4. when doing the main alignment, only take selective region of target(and query? can do without pad) and piece together alignment
+ * 1. measure coverage in each exact window, estimate coverage in each estimated window, tweak threhold/accept reject based on demands in windows.
+ * 2. check how many haploytype seqs are found 
+ * 3. 
  */
 
 
@@ -40,21 +39,504 @@ std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
 namespace align_reads {
 
+// ------------------------------------
+
+
+struct seq_info {
+    std::uint32_t id;
+    bool forward;
+    std::uint32_t start;
+    std::uint32_t end;
+    std::string contig;
+};	
+
+struct comp {
+    bool operator() (const seq_info& lhs, const seq_info& rhs) {
+        return lhs.id < rhs.id;
+    }	
+};
+
+
+static void print_seq_info(const seq_info& info) {
+    std::cout << "id " <<  info.id << std::endl;
+    std::cout << "contig " <<  info.contig << std::endl;
+    std::cout << "start " <<  info.start << std::endl;
+    std::cout << "end " << info.end << std::endl;
+    std::cout << "forward ? " << info.forward << std::endl;
+}
+
+
+std::vector<std::uint32_t> unique_counts;
+	
+static seq_info nanosim_extract(std::string name) {
+    //>NC-004354_15504699;aligned_0_R_9_1481_32
+    //>NC-004354_8681245_unaligned_17149_F_0_1489_0
+        
+    seq_info info;
+
+    std::uint32_t idx = 0;
+    std::string temp;
+    // extract contig name
+    while (name[idx] != '_') {
+        temp += name[idx++];
+    }
+    info.contig = temp;
+    temp.clear();
+    idx++;
+
+    // extract start
+    while (name[idx] != ';' && name[idx] != '_') {
+        temp+= name[idx++];
+    }
+    info.start = std::stoi(temp);
+    temp.clear();
+    idx++;
+    while (name[idx] != '_') {
+	idx++;
+    }
+    idx++;
+    // extract id 
+    while (name[idx] != '_') {
+        temp += name[idx++];
+    }
+    info.id = std::stoi(temp);
+    temp.clear();
+    idx++;
+    
+    // extract forward/reverse
+    if (name[idx] == 'F') {
+        info.forward = true;	
+    } else {
+	info.forward = false;
+    }
+    idx += 2;
+
+    while (name[idx] != '_') {
+	idx++;
+    }
+    idx++;
+
+    while (name[idx] != '_') {
+	temp += name[idx++];
+    }
+    info.end = info.start + std::stoi(temp);
+
+    return info;    
+}
+
+static seq_info seqreq_extract(std::string name) {
+    //>read=1,forward,position=19104036-19118431,length=14395,NT_033777.3
+    seq_info info;
+
+    std::uint32_t idx = 5;
+    std::string temp;
+    // extract read id string
+    while (name[idx] != ',') {
+        temp += name[idx++];
+    }
+    info.id = std::stoi(temp);
+    temp.clear();
+    idx++;
+
+    // extract forward or reverse
+    while (name[idx] != ',') {
+        temp+= name[idx++];
+    }
+    if (temp.compare("forward") == 0) {
+	info.forward = true;	
+    } else {
+	info.forward = false;
+    }
+    temp.clear();
+    idx += 10;
+
+    // extract start 
+    while (name[idx] != '-') {
+        temp += name[idx++];
+    }
+    info.start = std::stoi(temp);
+    temp.clear();
+    idx++;
+
+    // extract end
+    while (name[idx] != ',') {
+        temp += name[idx++];
+    }
+    info.end = std::stoi(temp);
+    temp.clear();
+    idx++;
+    while (name[idx] != ',') {
+	idx++;
+    }
+    idx++;
+
+    // extract contig
+    while (idx < name.size()) {
+	temp += name[idx++];
+    }
+    info.contig = std::move(temp);
+
+    return info;    
+
+
+}
+
+std::uint32_t overlap_len(seq_info query_info, seq_info target_info) {
+	if (query_info.contig != target_info.contig) return 0;     
+        if (query_info.start >= target_info.start && query_info.start < target_info.end) {
+    	    return query_info.end < target_info.end ? query_info.end - query_info.start : target_info.end - query_info.start;
+	       
+	} else if (query_info.end <= target_info.end && query_info.end > target_info.start) {
+	    return query_info.start < target_info.start ? query_info.end - target_info.start : query_info.end - query_info.start;
+	}
+	return 0;
+}
+
+void Aligner::test() {
+    auto& target = sequences[0];	
+    // get target string 
+    std::string target_string = target->InflateData();      
+    std::uint32_t target_id = target->id;
+    std::cout << "own len " << target->inflated_len << std::endl;
+    // find all overlaps with target
+    std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
+    std::cout << "ov num " << overlaps.size() << std::endl;
+    auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
+        return o1.rhs_id < o2.rhs_id;        
+    };
+    
+    // sort overlaps by id  
+    std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
+    // Fill up infos and overlapping reads 
+    
+    
+    //double prop = pa[kk];
+    double prop = 0.055;
+    
+
+    std::vector<seq_info> infos;
+    infos.reserve(overlaps.size());
+
+    std::vector<std::string> overlapping_reads;
+    overlapping_reads.reserve(overlaps.size());
+
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> clips;
+    clips.reserve(overlaps.size());
+
+    std::vector<EdlibAlignResult> edlib_results;
+    edlib_results.reserve(overlaps.size());
+    std::uint64_t last_id = -1;
+
+
+    auto thread_task = [] (std::string& query, std::string& target, std::uint32_t t_clip_left, std::uint32_t t_clip_right) {
+	EdlibAlignResult result = edlibAlign(query.c_str(), query.size(),
+            	target.c_str() + t_clip_left, target.size() - t_clip_left - t_clip_right,
+            	edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+	return result;
+    };
+
+    std::vector<bool> accepts;
+    accepts.reserve(overlaps.size());
+    std::vector<std::future<EdlibAlignResult>> futures;
+
+    std::uint64_t total = 0;
+    std::uint64_t tp = 0;
+    std::uint64_t fp = 0;
+    std::uint64_t tn = 0;
+    std::uint64_t fn = 0;
+     
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+   
+    for (auto& o : overlaps) {
+        //std::cout << "id " << o.rhs_id << std::endl;    
+        //std::cout << "lhs begin " << o.lhs_begin << " lhs_end " << o.lhs_end << std::endl; 
+        //std::cout << "rhs begin " << o.rhs_begin << " rhs_end " << o.rhs_end << std::endl;	
+        //if (!o.strand) {
+        //    std::cout << "reverse complement " << std::endl;
+        //}    	
+        if (true/*o.rhs_id != last_id*/) {
+            auto& s = sequences[id_to_pos_index[o.rhs_id]];
+            std::uint32_t t_begin = o.lhs_begin;
+            std::uint32_t t_end = o.lhs_end;
+            std::uint32_t q_begin = o.rhs_begin;
+            std::uint32_t q_end = o.rhs_end;
+            if (!o.strand) {
+                s->ReverseAndComplement();
+                q_end = s->inflated_len - o.rhs_begin;
+                q_begin = s->inflated_len - o.rhs_end;
+            }
+            int protrude_left = q_begin - t_begin + 10;
+            int protrude_right = (s->inflated_len - q_end) - (target_string.size() - t_end) + 10; 
+
+            std::uint32_t q_clip_left;    
+            std::uint32_t q_clip_right;
+            std::uint32_t t_clip_left;
+            std::uint32_t t_clip_right;
+            if (protrude_left > 0) {
+                q_clip_left = protrude_left;
+                t_clip_left = 0;
+            } else {
+                q_clip_left = 0;
+                t_clip_left = -protrude_left;
+            }
+            if (protrude_right > 0) {
+                q_clip_right = protrude_right;
+                t_clip_right = 0;
+            } else {
+                q_clip_right = 0;
+                t_clip_right = -protrude_right;
+            }
+
+	    std::uint32_t left_overhang = q_begin - q_clip_left;
+	    std::uint32_t right_overhang = s->inflated_len - q_clip_right - q_end;
+	    double bad_left_ratio = (double) left_overhang / (s->inflated_len - q_clip_left - q_clip_right);
+	    double bad_right_ratio = (double) right_overhang / (s->inflated_len - q_clip_left - q_clip_right);
+	    
+	    std::uint32_t larger = std::max(left_overhang, right_overhang);
+	    double larger_ratio = std::max(bad_left_ratio, bad_right_ratio);
+	    
+	    bool accept = true;
+	    if (larger_ratio > prop) {
+	        //if (!o.strand) s->ReverseAndComplement();
+	        //continue;
+		accept = false;
+	    } 
+	    accepts.push_back(accept); 
+
+	    //std::cout << "print " << std::endl;
+            last_id = o.rhs_id;
+            infos.emplace_back(o.rhs_id, !o.strand);                
+            clips.emplace_back(t_clip_left, t_clip_right);
+	    std::string query = s->InflateData(q_clip_left, s->inflated_len - q_clip_left - q_clip_right);
+            overlapping_reads.push_back(query);
+            //EdlibAlignResult result = edlibAlign(query.c_str(), query.size(),
+            //	target_string.c_str() + t_clip_left, target_string.size() - t_clip_left - t_clip_right,
+            //	edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+	    //edlib_results.push_back(result);
+            futures.emplace_back(pool->Submit(thread_task, query, target_string, t_clip_left, t_clip_right));
+
+	    //std::cout << "len " << s->inflated_len << std::endl;
+            //std::cout << "----------------------" << std::endl;
+            /*std::vector<std::string> test_queries;
+            test_queries.push_back(s->InflateData(q_clip_left, s->inflated_len - q_clip_left - q_clip_right));
+            std::vector<std::pair<std::uint32_t, std::uint32_t>> test_clips;
+	    test_clips.emplace_back(0, 0);
+            std::string test_target =  target->InflateData(t_clip_left, target->inflated_len - t_clip_left - t_clip_right);
+            auto r = pseudoMSA(test_queries,test_target,  test_clips, false);
+            r.print(); */
+	    
+	    /*auto test_query = s->InflateData(q_clip_left, s->inflated_len - q_clip_left - q_clip_right);
+	    auto test_target = target->InflateData(t_clip_left, target->inflated_len - t_clip_left - t_clip_right);
+	    EdlibAlignResult result = edlibAlign(test_query.c_str(), test_query.size(), test_target.c_str(), test_target.size(), edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
+            */
+	    if (!o.strand) s->ReverseAndComplement();
+        }
+    }
+
+    int i = 0;
+    for (auto& f: futures) {
+        auto result = f.get();
+	double score = result.editDistance/ (double) overlapping_reads[i].size();
+		    
+		    
+        if (score > 0.1) { 
+	    if (accepts[i]) {
+	        fp++;
+	    } else {
+	        tn++;
+	    }
+        } else {
+	    if (accepts[i]) {
+	        tp++;
+	    } else {
+	        fn++; 	
+	    }	
+       }
+       i++;
+       total ++;
+    }
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+    std::cout << "Time diff " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << std::endl;
+    std::cout << "tp: " << tp << std::endl;
+    std::cout << "tn: " << tn << std::endl;
+    std::cout << "fp: " << fp << std::endl;
+    std::cout << "fn: " << fn << std::endl;
+    std::cout << "accuracy: " << (tp + tn) / (double) total << std::endl;
+    std::cout << "recall: " << (double) tp/ (tp + fn) << std::endl;
+    std::cout << "precision: " << (double) tp / (tp + fp) << std::endl;
+    std::cout << "---------------" << std::endl;	
+
+    //move behind
+    for (auto r : edlib_results) {
+        edlibFreeAlignResult(r);
+    }        	
+}
+
+void Aligner::test2() {
+    std::uint64_t tp = 0;
+    std::uint64_t fp = 0;
+    std::uint64_t tn = 0;
+    std::uint64_t fn = 0;
+    std::uint64_t total = 0;
+    std::uint64_t counts[6] = {0};
+    std::uint64_t total_overlaps = 0;
+    std::uint32_t passed = 0;
+    for (auto i = 0; i < 1000; i++) {
+        std::set<align_reads::seq_info, comp> all;
+        std::set<align_reads::seq_info, comp> accepts;
+        auto& target = sequences[i];	
+        // get target string 
+        std::string target_string = target->InflateData();      
+        std::uint32_t target_id = target->id;
+        //std::cout << "own len " << target->inflated_len << std::endl;
+        // find all overlaps with target
+        std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
+        
+       
+        //if (overlaps.size() > 1000) continue;
+        //std::cout << "ov num " << overlaps.size() << std::endl;
+        //auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
+         //   return o1.rhs_id < o2.rhs_id;        
+        //};
+        
+        // sort overlaps by id  
+        //std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
+        // Fill up infos and overlapping reads 
+        
+        
+        double prop = 0.055;
+        
+        auto target_info = EXTRACT(target->name); 
+        for (auto& o : overlaps) {
+            if (true) {
+                auto& s = sequences[id_to_pos_index[o.rhs_id]];
+                auto query_info = EXTRACT(s->name);
+                std::uint32_t t_begin = o.lhs_begin;
+                std::uint32_t t_end = o.lhs_end;
+                std::uint32_t q_begin = o.rhs_begin;
+                std::uint32_t q_end = o.rhs_end;
+                if (!o.strand) {
+                    s->ReverseAndComplement();
+                    q_end = s->inflated_len - o.rhs_begin;
+                    q_begin = s->inflated_len - o.rhs_end;
+                }
+                int protrude_left = q_begin - t_begin + 10;
+                int protrude_right = (s->inflated_len - q_end) - (target_string.size() - t_end) + 10; 
+
+                std::uint32_t q_clip_left;    
+                std::uint32_t q_clip_right;
+                std::uint32_t t_clip_left;
+                std::uint32_t t_clip_right;
+                if (protrude_left > 0) {
+                    q_clip_left = protrude_left;
+                    t_clip_left = 0;
+                } else {
+                    q_clip_left = 0;
+                    t_clip_left = -protrude_left;
+                }
+                if (protrude_right > 0) {
+                    q_clip_right = protrude_right;
+                    t_clip_right = 0;
+                } else {
+                    q_clip_right = 0;
+                    t_clip_right = -protrude_right;
+                }
+
+                std::uint32_t left_overhang = q_begin - q_clip_left;
+                std::uint32_t right_overhang = s->inflated_len - q_clip_right - q_end;
+                double bad_left_ratio = (double) left_overhang / (s->inflated_len - q_clip_left - q_clip_right);
+                double bad_right_ratio = (double) right_overhang / (s->inflated_len - q_clip_left - q_clip_right);
+                
+                double larger_ratio = std::max(bad_left_ratio, bad_right_ratio);
+                
+                bool accept = true;
+                if (larger_ratio > prop) {
+                    accept = false;
+                } 
+
+                if (!o.strand) s->ReverseAndComplement();
+                all.insert(query_info);
+                if (accept) {
+                    accepts.insert(query_info);
+                }  
+            }
+        }
+        double ratio = all.size() / (double) unique_counts[i];
+        if (ratio > 1.01) continue;
+        passed++;
+
+        total_overlaps += overlaps.size();
+        //std::cout << "num unique reported overlapping sequences: " << all.size() << std::endl;
+        //std::cout << "num unique accepted: " << accepts.size() << std::endl;
+        for (auto& info : accepts) {
+             std::uint32_t ovl = overlap_len(info, target_info);	    
+             std::uint16_t lv = log10(ovl);
+             if (ovl > 0) {
+                 tp++;
+                 if (lv >= 5) {
+                     counts[5]++;   	
+                 } else {
+                     counts[lv]++;
+                 }
+             } else {
+                 fp++;
+             }
+
+        }
+        total += all.size();
+        for (auto& info : accepts) {
+            all.erase(info);
+        }
+        // these are rejected
+        for (auto& info : all) {
+             std::uint32_t ovl = overlap_len(info, target_info);	    
+             if (ovl > 0) {
+                 fn++;
+             } else {
+                 tn++;
+             }
+        }
+    }
+    //for (auto i = 0; i < 6; i++) {
+    //	std::cout << "cat " << i << " has " << counts[i] << std::endl;
+    //}
+    std::cout << "passed: " << passed << std::endl;
+    std::cout << "total overlaps: " << total_overlaps << std::endl;
+    std::cout << "total unique reported overlapping sequences: " << total << std::endl;
+    std::cout << "tp: " << tp << std::endl;
+    std::cout << "tn: " << tn << std::endl;
+    std::cout << "fp: " << fp << std::endl;
+    std::cout << "fn: " << fn << std::endl;
+    std::cout << "accuracy: " << (tp + tn) / (double) total << std::endl;
+    std::cout << "recall: " << (double) tp/ (tp + fn) << std::endl;
+    std::cout << "precision: " << (double) tp / (tp + fp) << std::endl;
+    std::cout << "---------------" << std::endl;	
+}
+
+
+
+
+
+//------------------------------------------------
+
 Data Aligner::next() {
-    bool has_hap = !haplotypes_sequences.empty();
+    /*bool has_hap = !haplotypes_sequences.empty();
     
     if (has_hap) {
         
         auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
         if (!result.valid) return Data();
-        result.alignment.print();
+        //result.alignment.print();
         return result.produce_data(has_hap, start_of_other_phase);
     } else {
         auto result = align_overlapping(sequences[num_processed++]);
         if (!result.valid) return Data();
-        result.alignment.print();
+        //result.alignment.print();
         return result.produce_data(has_hap, start_of_other_phase);
-    }    
+    }*/
+    test2();
+    return Data(); 
 }
 
 constexpr static std::uint8_t ENCODER[] = {
@@ -75,14 +557,18 @@ constexpr static std::uint8_t ENCODER[] = {
 constexpr static char DECODER[] = {
     'A', 'C', 'G', 'T', '_'
 };
-   
-Aligner::Aligner(const char** sequences_paths, std::uint32_t num_threads, std::uint8_t kmer_len, 
+
+
+
+
+Aligner::Aligner(const char** sequences_paths, std::shared_ptr<thread_pool::ThreadPool>& pool, std::uint8_t kmer_len, 
     std::uint8_t window_len, double freq, const char** haplotypes_paths) 
-    : minimizer_engine(std::make_shared<thread_pool::ThreadPool>(num_threads), kmer_len, window_len) {
+    : pool(pool), minimizer_engine(pool, kmer_len, window_len, 500, 4, 100, 500) {
     
 	
-    srand (time(NULL));
-	biosoup::NucleicAcid::num_objects = 0;
+    //srand (time(NULL));
+    srand(42);
+    biosoup::NucleicAcid::num_objects = 0;
     auto is_suffix = [] (const std::string& s, const std::string& suff) {
     return s.size() < suff.size() ? false :
         s.compare(s.size() - suff.size(), suff.size(), suff) == 0;
@@ -145,16 +631,75 @@ Aligner::Aligner(const char** sequences_paths, std::uint32_t num_threads, std::u
 	
     std::uint32_t total_seq_num = 0;
     total_seq_num += sequences.size();
+    
+    
+
     for (auto& s: haplotypes_sequences) {
         total_seq_num += s.size();
     }
-	
-    id_to_pos_index.resize(total_seq_num);
+
     
-	std::sort(sequences.begin(), sequences.end(), long_seq_first);
+    id_to_pos_index.resize(total_seq_num);
+    //std::sort(sequences.begin(), sequences.end(), long_seq_first);
+    
+    // ----------------------------------
+    std::random_shuffle(sequences.begin(), sequences.end());
+    std::cout << "num seq " << sequences.size() << std::endl;    
+    
+    /*std::uint32_t max_len = 0;
+    std::uint32_t min_len = -1;
+    std::uint64_t total_len = 0;
+    for (auto& s: sequences) {
+        std::uint32_t len = s->inflated_len;
+        if (len > max_len) max_len = len;
+	if (len < min_len) min_len = len;
+	total_len += len;	
+
+    }
+
+    std::cout << "min " << min_len << " max " << max_len << " avg " << total_len / (double) sequences.size() << std::endl;
+    */
+
+    /*
+    std::cout << "full string " << sequences[0]->name << std::endl;
+    auto info = EXTRACT(sequences[0]->name);
+    std::cout << "id " <<  info.id << std::endl;
+    std::cout << "contig " <<  info.contig << std::endl;
+    std::cout << "start " <<  info.start << std::endl;
+    std::cout << "end " << info.end << std::endl;
+    std::cout << "forward ? " << info.forward << std::endl;
+    */
+    std::uint64_t num_overlap = 0;
+    std::uint64_t counts[6] = {0};
+    for (auto i = 0; i < 1000; i++) {
+        std::uint32_t individual_overlap = 0;
+        auto target_info = EXTRACT(sequences[i]->name);
+        for (auto& s: sequences) {
+            auto query_info = EXTRACT(s->name);
+            if (query_info.id == target_info.id) continue;
+            std::uint32_t len = overlap_len(query_info, target_info);
+            if (len > 0) {
+                individual_overlap++;
+                std::uint16_t lv = log10(len);
+                if (lv >= 5) {
+                    counts[5]++;
+                } else {
+                    counts[lv]++;
+                }	 
+            }    
+        } 
+        num_overlap += individual_overlap;
+        unique_counts.push_back(individual_overlap);
+    }
+    std::cout << "overlap num " << num_overlap << std::endl;
+    //for (auto i = 0; i < 6; i++) {
+    //	std::cout << "cat " << i << " " << counts[i] << std::endl;
+    //}	    
+    // -------------------------------------------
+
     std::uint32_t pos_index = 0;
 
-	for (auto& s: sequences) {
+    for (auto& s: sequences) {
         id_to_pos_index[s->id] = pos_index++; 
     }
 	
@@ -178,7 +723,7 @@ Aligner::Aligner(const char** sequences_paths, std::uint32_t num_threads, std::u
 
 Aligner::align_result Aligner::align_to_target_clip(std::vector<std::string>& queries, std::string& target,
     std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, std::vector<std::vector<std::uint32_t>>& inserters,
-    std::vector<std::uint32_t>& ins_at_least2, bool has_hap) {  
+    std::vector<std::uint32_t>& ins_at_least2, bool has_hap, std::vector<EdlibAlignResult>& edlib_results) {  
     align_result result;
     // Fill in the bases from the target into the first row
     result.target_columns.resize(target.size());        
@@ -203,9 +748,11 @@ Aligner::align_result Aligner::align_to_target_clip(std::vector<std::string>& qu
         std::uint32_t right_clip = clip.second;        
         
         auto& query = queries[k];
-        EdlibAlignResult align = edlibAlign(query.c_str(), query.size(),
+        EdlibAlignResult& align = edlib_results[k];
+		
+		/*edlibAlign(query.c_str(), query.size(),
             target.c_str() + left_clip, target.size() - left_clip - right_clip,
-            edlibNewAlignConfig(-1, EDLIB_MODE_NW, EDLIB_TASK_PATH, NULL, 0));
+            edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));*/
             
         std::uint32_t next_query_index = 0; // upcoming query position
         std::uint32_t next_target_index = align.startLocations[0] + left_clip; // upcoming target position
@@ -397,11 +944,11 @@ Aligner::align_result Aligner::align_to_target_no_clip(std::vector<std::string>&
 
 
 Aligner::align_result Aligner::pseudoMSA(std::vector<std::string>& queries, std::string& target, 
-    std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, bool has_hap) {
+    std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, std::vector<EdlibAlignResult>& edlib_results, bool has_hap) {
     std::vector<std::vector<std::uint32_t>> inserters; //for each position, contains positional index of queries that has ins there    
     inserters.resize(target.size());
     std::vector<std::uint32_t> ins_at_least2;    // target positions where there are at least 2 reads with ins
-    align_result result = align_to_target_clip(queries, target, clips, inserters, ins_at_least2, has_hap);
+    align_result result = align_to_target_clip(queries, target, clips, inserters, ins_at_least2, has_hap, edlib_results);
  
     for (auto& ins_pos : ins_at_least2) { // for all positions that have at least two queries with insertions, 
         // extract the ins segments, and record the longest one  
@@ -496,11 +1043,8 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     // get target string 
     std::string target_string = target->InflateData();      
     std::uint32_t target_id = target->id;
-    //std::cout << "own len " << target->inflated_len << std::endl;
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
-    //std::cout << "ov num " << overlaps.size() << std::endl;
-    if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };
@@ -508,25 +1052,38 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
     // sort overlaps by id  
     std::sort(overlaps.begin(), overlaps.end(), sort_by_id);
     // Fill up infos and overlapping reads 
+    
+    
+    //double prop = pa[kk];
+    double prop = 0.055;
+    
+
     std::vector<seq_info> infos;
     infos.reserve(overlaps.size());
+
     std::vector<std::string> overlapping_reads;
     overlapping_reads.reserve(overlaps.size());
+
     std::vector<std::pair<std::uint32_t, std::uint32_t>> clips;
     clips.reserve(overlaps.size());
+
+    std::vector<EdlibAlignResult> edlib_results;
+    edlib_results.reserve(overlaps.size());
     std::uint64_t last_id = -1;
 
+
+    auto thread_task = [] (std::string& query, std::string& target, std::uint32_t t_clip_left, std::uint32_t t_clip_right) {
+	EdlibAlignResult result = edlibAlign(query.c_str(), query.size(),
+            	target.c_str() + t_clip_left, target.size() - t_clip_left - t_clip_right,
+            	edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+	return result;
+    };
+
+    std::vector<std::future<EdlibAlignResult>> futures;
+
+   
     for (auto& o : overlaps) {
-        /*std::cout << "id " << o.rhs_id << std::endl;    
-        std::cout << "lhs begin " << o.lhs_begin << " lhs_end " << o.lhs_end << std::endl; 
-        std::cout << "rhs begin " << o.rhs_begin << " rhs_end " << o.rhs_end << std::endl;	
-        if (!o.strand) {
-            std::cout << "reverse complement " << std::endl;
-        } */   	
-        if (overlapping_reads.size() == MATRIX_HEIGHT) break;	
         if (o.rhs_id != last_id) {
-            last_id = o.rhs_id;
-            infos.emplace_back(o.rhs_id, !o.strand);
             auto& s = sequences[id_to_pos_index[o.rhs_id]];
             std::uint32_t t_begin = o.lhs_begin;
             std::uint32_t t_end = o.lhs_end;
@@ -537,8 +1094,9 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
                 q_end = s->inflated_len - o.rhs_begin;
                 q_begin = s->inflated_len - o.rhs_end;
             }
-            int protrude_left = q_begin - t_begin;
-            int protrude_right = (s->inflated_len - q_end) - (target_string.size() - t_end); 
+            int protrude_left = q_begin - t_begin + 10;
+            int protrude_right = (s->inflated_len - q_end) - (target_string.size() - t_end) + 10; 
+
             std::uint32_t q_clip_left;    
             std::uint32_t q_clip_right;
             std::uint32_t t_clip_left;
@@ -557,26 +1115,45 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
                 q_clip_right = 0;
                 t_clip_right = -protrude_right;
             }
-            
-          
+
+	    std::uint32_t left_overhang = q_begin - q_clip_left;
+	    std::uint32_t right_overhang = s->inflated_len - q_clip_right - q_end;
+	    double bad_left_ratio = (double) left_overhang / (s->inflated_len - q_clip_left - q_clip_right);
+	    double bad_right_ratio = (double) right_overhang / (s->inflated_len - q_clip_left - q_clip_right);
+	    
+	    std::uint32_t larger = std::max(left_overhang, right_overhang);
+	    double larger_ratio = std::max(bad_left_ratio, bad_right_ratio);
+	    
+
+	    if (larger_ratio > prop) {
+	        if (!o.strand) s->ReverseAndComplement();
+	        continue;
+		
+	    } 
+
+            last_id = o.rhs_id;
+            infos.emplace_back(o.rhs_id, !o.strand);                
             clips.emplace_back(t_clip_left, t_clip_right);
-            overlapping_reads.push_back(s->InflateData(q_clip_left, s->inflated_len - q_clip_left - q_clip_right));
-            //std::cout << "len " << s->inflated_len << std::endl;
-            //std::cout << "left pad " << left_pad << " right pad " << right_pad << std::endl;
-            //std::cout << "----------------------" << std::endl;
-            //std::vector<std::string> temp;
-            //temp.push_back(s->InflateData(q_begin, q_end-q_begin+ 1));
-            //std::vector<std::pair<std::uint32_t, std::uint32_t>> temp2;
-            //std::string temp3 =  target->InflateData(t_begin, t_end - t_begin + 1);
-            //auto r = pseudoMSA(temp,temp3,  temp2, false);
-            //r.print(); 
-            if (!o.strand) s->ReverseAndComplement();
+	    std::string query = s->InflateData(q_clip_left, s->inflated_len - q_clip_left - q_clip_right);
+            overlapping_reads.push_back(query);
+            futures.emplace_back(pool->Submit(thread_task, query, target_string, t_clip_left, t_clip_right)); 
+	    if (!o.strand) s->ReverseAndComplement();
         }
     }
-    //std::cout << "accepted num: " << overlapping_reads.size() << std::endl;
-    
-    auto alignment = pseudoMSA(overlapping_reads, target_string, clips, false);    
-    return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
+    std::uint32_t i = 0;
+    for (auto& f: futures) {
+        auto result = f.get();
+	double score = result.editDistance/ (double) overlapping_reads[i++].size();		
+    }
+
+    //move behind
+    for (auto r : edlib_results) {
+        edlibFreeAlignResult(r);
+    } 
+       	
+    return align_overlapping_result(); 
+    //auto alignment = pseudoMSA(overlapping_reads, target_string, clips, edlib_results, false);   
+   //return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
 }
 
 
@@ -586,7 +1163,6 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
     std::uint32_t target_id = target->id;
     // find all overlaps with target
     std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true); 
-    if (overlaps.size() < MIN_OVLP) return align_overlapping_result();
     auto sort_by_id = [] (const biosoup::Overlap& o1, const biosoup::Overlap& o2) {
         return o1.rhs_id < o2.rhs_id;        
     };
@@ -595,16 +1171,20 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
     // Fill up infos and overlapping reads 
     std::vector<seq_info> infos;
     infos.reserve(overlaps.size());
+
     std::vector<std::string> overlapping_seqs;
     overlapping_seqs.reserve(overlaps.size() + 2);
+
     std::vector<std::pair<std::uint32_t, std::uint32_t>> clips;
     clips.reserve(overlaps.size() + 2);
+
+    std::vector<EdlibAlignResult> edlib_results;
+    edlib_results.reserve(overlaps.size());
+
     std::uint64_t last_id = -1;
 
     for (auto& o : overlaps) {
         if (o.rhs_id != last_id) {
-            last_id = o.rhs_id;
-            infos.emplace_back(o.rhs_id, !o.strand);
             auto& s = sequences[id_to_pos_index[o.rhs_id]];
             std::uint32_t t_begin = o.lhs_begin;
             std::uint32_t t_end = o.lhs_end;
@@ -617,7 +1197,8 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
             }
             int protrude_left = q_begin - t_begin;
             int protrude_right = (s->inflated_len - q_end) - (target_string.size() - t_end); 
-            std::uint32_t q_clip_left;    
+            
+	    std::uint32_t q_clip_left;    
             std::uint32_t q_clip_right;
             std::uint32_t t_clip_left;
             std::uint32_t t_clip_right;
@@ -637,8 +1218,20 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
             }
             
           
-            clips.emplace_back(t_clip_left, t_clip_right);
-            overlapping_seqs.push_back(s->InflateData(q_clip_left, s->inflated_len - q_clip_left - q_clip_right));
+            float good_overlap_ratio = (o.rhs_end - o.rhs_begin) / (float) (s->inflated_len - q_clip_left - q_clip_right);
+	    if (good_overlap_ratio < MIN_GOOD_OVLP_RATIO) {
+	        if (!o.strand) s->ReverseAndComplement();
+		continue;
+	    }
+	    last_id = o.rhs_id;
+            infos.emplace_back(o.rhs_id, !o.strand);
+	    clips.emplace_back(t_clip_left, t_clip_right);
+	    std::string query = s->InflateData(q_clip_left, s->inflated_len - q_clip_left - q_clip_right);
+            overlapping_seqs.push_back(query);
+            EdlibAlignResult align = edlibAlign(query.c_str(), query.size(),
+            	target_string.c_str() + t_clip_left, target_string.size() - t_clip_left - t_clip_right,
+            	edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+	    edlib_results.push_back(align);
             if (!o.strand) s->ReverseAndComplement();
 
         }
@@ -682,13 +1275,19 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
         }
         std::string hap_string = seq->InflateData(adjusted_begin, adjusted_end - adjusted_begin);
         clips.emplace_back(0, 0);
-        overlapping_seqs.push_back(std::move(hap_string));
+        overlapping_seqs.push_back(hap_string);
         infos.emplace_back(best_match_id, !best_match_strand);
+        EdlibAlignResult align = edlibAlign(hap_string.c_str(), hap_string.size(),
+            target_string.c_str(), target_string.size(),
+            edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+	edlib_results.push_back(align);
+
+
         if (!best_match_strand) seq->ReverseAndComplement();                
     }
 
     
-    auto alignment = pseudoMSA(overlapping_seqs, target_string, clips, true);    
+    auto alignment = pseudoMSA(overlapping_seqs, target_string, clips, edlib_results, true);    
     
     return align_overlapping_result(std::move(alignment), std::move(infos), target_id);        
 }
@@ -765,7 +1364,14 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
             ins_index = 0;
         }            
     }
-    
+    std::cout << "window coverage " << std::endl;
+    for (auto i = 0; i < window_to_reads.size(); i++) {
+	    auto& p = window_to_starts[i];
+	    std::cout << " window i starts at " << p.first << ", " << p.second << std::endl;
+	    std::cout << " window " << i  << " has " << window_to_reads[i].size() << " reads " << std::endl;
+
+    }	    
+
     auto fill_X_from_target = [&window_to_starts, &target_columns, &ins_columns] (
         PyObject* matrix, std::uint32_t window_index, std::uint32_t row_index) {
         
@@ -983,7 +1589,7 @@ void Aligner::align_result::print() {
                 if (k%2==0) { 
                     block[k].push_back(ins_column[k/2]);
                     if (k != 0) {
-                        if (/*block[k].back() != '_' && block[k-2].back() != '_' &&*/ block[k].back() != block[k-2].back()) {
+                        if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
                             block[k-1].push_back('!');
                         } else {
                             block[k-1].push_back(' ');
@@ -1010,7 +1616,7 @@ void Aligner::align_result::print() {
 
                 if (k != 0) {
 			
-                    if (/*block[k].back() != '_' && block[k-2].back() != '_' &&*/ block[k].back() != block[k-2].back()) {
+                    if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
                         
 			block[k-1].push_back('!');
                     } else {
@@ -1037,7 +1643,7 @@ void Aligner::align_result::print() {
                 if (k%2==0) {
                     block[k].push_back(ins_column[k/2]);
                     if (k != 0) {
-                        if (/*block[k].back() != '_' && block[k-2].back() != '_' &&*/ block[k].back() != block[k-2].back()) {
+                        if (block[k].back() != '_' && block[k-2].back() != '_' && block[k].back() != block[k-2].back()) {
                             block[k-1].push_back('!');
                         } else {
                             block[k-1].push_back(' ');

@@ -10,7 +10,7 @@
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "edlib.h"
-
+/*
 const char* reads_fastq_path = "../test_data/reads.fastq";
 const char* reads_fasta_path = "../test_data/reads.fasta";
 
@@ -124,3 +124,4 @@ TEST(ComponentTests, align_hap) {
     }
     
 }
+*/

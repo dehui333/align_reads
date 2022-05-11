@@ -40,7 +40,7 @@ private:
     
     std::atomic<std::uint32_t> num_processed{0};
     
-    
+
     struct seq_info {
         std::uint32_t id;
         bool reverse_complement; // is actually seq the reverse complement of what's in the alignment?
@@ -133,7 +133,7 @@ public:
 
     void test();
     void test2();
-    
+    void test3(); 
     //bool has_next();
     
 };

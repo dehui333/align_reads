@@ -1,4 +1,4 @@
-py_ext: venv libalign_reads.a align_reads_gen.cpp
+py_ext: venv libalign_reads.a align_reads_gen.cpp 
 	. align_reads_venv/bin/activate; python3 setup.py build_ext -f; python3 setup.py install
 
 venv: align_reads_venv/bin/activate

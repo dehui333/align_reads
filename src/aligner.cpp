@@ -28,7 +28,7 @@
 #define GAP_CODE 4 
 #define MIN_GOOD_OVLP_RATIO 0.95
 #define EXTRACT nanosim_extract
-#define OVLP_THRES 0
+#define OVLP_THRES 250
 #define TRIALS 1000
 /*
  * To Do: 
@@ -47,7 +47,9 @@ namespace align_reads {
 static std::uint64_t true_overlap_num = 0;
 struct seq_info {
     std::uint32_t id;
+    std::uint32_t target_id;
     bool forward;
+    bool aligned = false;
     std::uint32_t start;
     std::uint32_t end;
     std::string contig;
@@ -80,7 +82,8 @@ struct seq_info {
 
 struct comp {
     bool operator() (const seq_info& lhs, const seq_info& rhs) {
-        return lhs.id < rhs.id;
+        if (lhs.id != rhs.id) return lhs.id < rhs.id;
+        return lhs.target_id < rhs.target_id;
     }	
 };
 
@@ -119,6 +122,11 @@ static seq_info nanosim_extract(std::string name) {
     info.start = std::stoi(temp);
     temp.clear();
     idx++;
+    if (name[idx] == 'a') {
+        info.aligned = true;
+    } else {
+        info.aligned = false;
+    }
     while (name[idx] != '_') {
 	    idx++;
     }
@@ -247,6 +255,7 @@ void Aligner::test() {
             auto query_info = EXTRACT(s->name);
             query_info.t_idx = i;
             query_info.q_idx = id_to_pos_index[o.rhs_id];
+            query_info.target_id = target_info.id;
             query_info.target_name = target_info.name;
             query_info.q_start = o.rhs_begin;
             query_info.q_end = o.rhs_end;
@@ -256,6 +265,7 @@ void Aligner::test() {
             if (overlap_len(query_info, target_info) > OVLP_THRES) found.insert(query_info);
         }       
     }
+    std::uint32_t total_ovlp_len_found = 0;
     for (auto& item:found) {
         //if (item.id != 15843) continue;
         if (all_overlaps.find(item) == all_overlaps.end()) continue;       
@@ -305,13 +315,16 @@ void Aligner::test() {
         std::cout << "tostart " << item.t_start << " toend " << item.t_end << std::endl;
         std::cout << "qn " << item.name << std::endl;
         std::cout << "tn " << target_info.name << std::endl;
-
+        
         
         std::cout << "full ql " << query_s->inflated_len << std::endl;
         std::cout << "full tl " << target_s->inflated_len << std::endl; 
         int ql = query_s->inflated_len - q_left_clip - q_right_clip;
         int tl = target_s->inflated_len - t_left_clip - t_right_clip;
         std::cout << "ql " << ql << " tl " << tl << std::endl;
+        std::uint32_t ovlp_len = overlap_len(item, target_info);
+        total_ovlp_len_found += ovlp_len;
+        std::cout << "overlap len " << ovlp_len << std::endl;
         if (ql < 100 && tl < 100) {
             std::cout << "PROBLEMATIC" << std::endl;
             continue;
@@ -343,66 +356,15 @@ void Aligner::test() {
         std::vector<EdlibAlignResult> rs = {result};
         auto alignment = pseudoMSA(overlapping_reads, target, clips, rs, false);
         alignment.print(); 
-        //exit(0);
-        /*
-        target = query_s->InflateData(0, -1);
-        query = target_s->InflateData(0, -1);
-        overlapping_reads.clear();
-        overlapping_reads.push_back(query);
-        
-        result = edlibAlign(query.c_str(), query.size(),
-            	        target.c_str(), target.size(),
-             	        edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));        
-        clips.clear();
-        clips.emplace_back(0, 0);
-
-        rs = {result};
-        alignment = pseudoMSA(overlapping_reads, target, clips, rs, false);
-        alignment.print(); 
-        exit(0);
-        
-        std::cout << "----------------------prefix--------------------- " << std::endl;
-        query = query_s->InflateData(0, query_s->inflated_len);
-        target = target_s->InflateData(0, target_s->inflated_len);
-        overlapping_reads.clear();
-        overlapping_reads.push_back(query);
-        
-        result = edlibAlign(query.c_str(), query.size(),
-            	        target.c_str(), target.size(),
-             	        edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));        
-        clips.clear();
-        clips.emplace_back(0, 0);
-
-        rs = {result};
-        alignment = pseudoMSA(overlapping_reads, target, clips, rs, false);
-        alignment.print(); 
-
-        
-
-        if (!item.forward) query_s->ReverseAndComplement();
-        if (!target_info.forward) target_s->ReverseAndComplement();
-
-        std::cout << "----------------------reverse prefix--------------------- " << std::endl;
-        target = query_s->InflateData(0, query_s->inflated_len);
-        query = target_s->InflateData(0, target_s->inflated_len);
-        overlapping_reads.clear();
-        overlapping_reads.push_back(query);
-        
-        result = edlibAlign(query.c_str(), query.size(),
-            	        target.c_str(), target.size(),
-             	        edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));        
-        clips.clear();
-        clips.emplace_back(0, 0);
-
-        rs = {result};
-        alignment = pseudoMSA(overlapping_reads, target, clips, rs, false);
-        alignment.print(); 
-        */
-         
+                
 
         if (!item.forward) query_s->ReverseAndComplement();
         if (!target_info.forward) target_s->ReverseAndComplement();         
     }
+    std::cout << "avg len found " << (double) total_ovlp_len_found / found.size() << std::endl;
+    std::uint32_t total_ovlp_len_not_found = 0;
+    std::uint32_t num_short = 0;
+    std::uint32_t num_long = 0;
     for (auto& item:all_overlaps) {
         auto target_info = EXTRACT(item.target_name);
         auto& target_s = sequences[item.t_idx];
@@ -457,6 +419,11 @@ void Aligner::test() {
 
        
         std::cout << "ql " << ql << " tl " << tl << std::endl;
+        std::uint32_t ovlp_len = overlap_len(item, target_info);
+        total_ovlp_len_not_found += ovlp_len;
+        if (ovlp_len < 500 && item.aligned && target_info.aligned) num_short++;
+        if (ovlp_len > 1000 && item.aligned && target_info.aligned) num_long++;
+        std::cout << "overlap len " << ovlp_len << std::endl;
         if (ql < 100 && tl < 100) {
             std::cout << "PROBLEMATIC" << std::endl;
             continue;
@@ -500,12 +467,7 @@ void Aligner::test() {
         std::vector<EdlibAlignResult> rs = {result};
         auto alignment = pseudoMSA(overlapping_reads, target, clips, rs, false);
         alignment.print(); 
-        /* 
-
-        std::cout << "----------------reverse infix---------------- " << std::endl;
-        target = query_s->InflateData(0, query_s->inflated_len);
-        query  = target_s->InflateData(0, target_s->inflated_len);
-        overlapping_reads.clear();
+      
         if (!item.forward) {
             query_s->ReverseAndComplement();
 
@@ -514,81 +476,10 @@ void Aligner::test() {
 
            target_s->ReverseAndComplement();
         }
-        overlapping_reads.push_back(query);
-        
-        result = edlibAlign(query.c_str(), query.size(),
-            	        target.c_str(), target.size(),
-             	        edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));        
-        clips.clear();
-        clips.emplace_back(0, 0);
-
-        rs = {result};
-        alignment = pseudoMSA(overlapping_reads, target, clips, rs, false);
-        alignment.print(); 
-
-
-
-
-
-        std::cout << "-----------------------prefix--------------------- " << std::endl;
-        query = query_s->InflateData(0, query_s->inflated_len);
-        target = target_s->InflateData(0, target_s->inflated_len);
-        overlapping_reads.clear();
-        if (!item.forward) {
-            query_s->ReverseAndComplement();
-
-        }
-        if (!target_info.forward) {
-
-           target_s->ReverseAndComplement();
-        }
-        overlapping_reads.push_back(query);
-        
-        result = edlibAlign(query.c_str(), query.size(),
-            	        target.c_str(), target.size(),
-             	        edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));        
-        clips.clear();
-        clips.emplace_back(0, 0);
-
-        rs = {result};
-        alignment = pseudoMSA(overlapping_reads, target, clips, rs, false);
-        alignment.print(); 
-
-        std::cout << "-----------------------reverse prefix--------------------- " << std::endl;
-        target = query_s->InflateData(0, query_s->inflated_len);
-        query = target_s->InflateData(0, target_s->inflated_len);
-        overlapping_reads.clear();
-        if (!item.forward) {
-            query_s->ReverseAndComplement();
-
-        }
-        if (!target_info.forward) {
-
-           target_s->ReverseAndComplement();
-        }
-        overlapping_reads.push_back(query);
-        
-        result = edlibAlign(query.c_str(), query.size(),
-            	        target.c_str(), target.size(),
-             	        edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));        
-        clips.clear();
-        clips.emplace_back(0, 0);
-          
-        rs = {result};
-        alignment = pseudoMSA(overlapping_reads, target, clips, rs, false);
-        alignment.print(); 
-        */  
-        if (!item.forward) {
-            query_s->ReverseAndComplement();
-
-        }
-        if (!target_info.forward) {
-
-           target_s->ReverseAndComplement();
-        }
-
-
     }
+    std::cout << "num short " << num_short << std::endl;
+    std::cout << "num long " << num_long << std::endl;
+    std::cout << "avg not found " << (double) total_ovlp_len_not_found/ all_overlaps.size() << std::endl;
    	
 }
 
@@ -723,7 +614,7 @@ void Aligner::test2() {
                 if (!o.strand) s->ReverseAndComplement();
             }
         }
-        double ratio = all.size() / (double) unique_counts[i];
+        //double ratio = all.size() / (double) unique_counts[i];
         //if (ratio > 1.01) continue;
         passed++;
         //std::cout << "all size " << all.size() << std::endl;
@@ -870,7 +761,26 @@ void Aligner::test2() {
 
 
 void Aligner::test3() {
-
+    std::set<align_reads::seq_info, comp> all;
+    std::set<align_reads::seq_info, comp> positives;
+    for (std::uint32_t target_pos = 0; target_pos < TRIALS; target_pos++) {
+        auto& target = sequences[target_pos];	
+        std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target, true, false, true);
+        auto target_info = EXTRACT(target->name);
+        for (auto& o : overlaps) {
+            auto& query = sequences[id_to_pos_index[o.rhs_id]];
+            auto query_info = EXTRACT(query->name);
+            query_info.target_id = target_info.id;
+            std::uint32_t ovl_len = overlap_len(query_info, target_info);
+            all.insert(query_info);
+            if (ovl_len > OVLP_THRES) {
+                positives.insert(query_info);
+            }
+        
+        }
+    }
+    std::cout << "recall: " << (double) positives.size() / true_overlap_num << std::endl; 
+    std::cout << "precision: " << (double) positives.size() / all.size() << std::endl;
 }
 
 
@@ -920,7 +830,7 @@ constexpr static char DECODER[] = {
 
 Aligner::Aligner(const char** sequences_paths, std::shared_ptr<thread_pool::ThreadPool>& pool, std::uint8_t kmer_len, 
     std::uint8_t window_len, double freq, const char** haplotypes_paths) 
-    : pool(pool), minimizer_engine(pool, kmer_len, window_len, 500, 4, 100, 500) {
+    : pool(pool), minimizer_engine(pool, kmer_len, window_len, 500, 4, 125, 500) {
     
 	
     //srand (time(NULL));
@@ -1037,7 +947,7 @@ Aligner::Aligner(const char** sequences_paths, std::shared_ptr<thread_pool::Thre
     }
     exit(0);*/
     
-
+    
     for (auto i = 0; i < TRIALS; i++) {        
 
         auto target_info = EXTRACT(sequences[i]->name);
@@ -1046,8 +956,10 @@ Aligner::Aligner(const char** sequences_paths, std::shared_ptr<thread_pool::Thre
             auto query_info = EXTRACT(s->name);
             query_info.t_idx = i;
             query_info.q_idx = c++;
+
             query_info.name = s->name;
             query_info.target_name = sequences[i]->name;
+            query_info.target_id = target_info.id;
             if (query_info.id == target_info.id) continue;
             std::uint32_t len = overlap_len(query_info, target_info);
 
@@ -1058,8 +970,7 @@ Aligner::Aligner(const char** sequences_paths, std::shared_ptr<thread_pool::Thre
             }    
         } 
     }
-    std::cout << "overlap num " << num_overlap << std::endl;
-    
+    std::cout << "overlap num " << true_overlap_num << std::endl;
 
 
     //for (auto i = 0; i < 6; i++) {

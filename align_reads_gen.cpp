@@ -41,7 +41,7 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
 	
 	std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(THREADS); 
         if (haplotypes_path[0] == nullptr || haplotypes_path[1] == nullptr) {
-            gen = new align_reads::Aligner(reads_path, pool, 10, 5, 0.001, nullptr);
+            gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.001, nullptr);
         } else {
             gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.001, haplotypes_path);        
             

@@ -10,10 +10,10 @@
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "edlib.h"
-/*
+
 const char* reads_fastq_path = "../test_data/reads.fastq";
 const char* reads_fasta_path = "../test_data/reads.fasta";
-
+std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(5); 
 
 // Demonstrate some basic assertions.
 TEST(TrivialTests, BasicAssertions) {
@@ -48,8 +48,9 @@ TEST(BasicTests, Parse_Fastq) {
 }
 
 TEST(BasicTests, Construct_Generator_Fasta) {
+ 
     const char* p[2] = {reads_fasta_path, nullptr};
-    align_reads::Aligner gen_fasta {p, 1, 15, 5, 0.001};
+    align_reads::Aligner gen_fasta {p, pool, 15, 5, 0.001, nullptr};
     EXPECT_EQ(gen_fasta.sequences.size(), 2);
     
     uint32_t last1 = gen_fasta.sequences.size() - 1;
@@ -59,9 +60,11 @@ TEST(BasicTests, Construct_Generator_Fasta) {
     EXPECT_EQ(gen_fasta.sequences[last1]->InflateData(), "ACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTGACTG");    
 }
 
+
+
 TEST(BasicTests, Construct_Generator_Fastq) {
     const char* p[2] = {reads_fastq_path, nullptr};
-    align_reads::Aligner gen_fastq {p, 3, 15, 10, 0.0002};
+    align_reads::Aligner gen_fastq {p, pool, 15, 10, 0.0002};
     EXPECT_EQ(gen_fastq.sequences.size(), 3165);
     std::uint32_t last_len = 1000000000;
     for (auto& s: gen_fastq.sequences) {
@@ -75,53 +78,25 @@ TEST(BasicTests, Construct_Generator_Fastq) {
 TEST(ComponentTests, aligning) {
     std::string target = "GACTAGGAC";
     std::vector<std::string> queries = {"GACTAGGAC"};
-    std::vector<std::pair<std::uint32_t, std::uint32_t>> v;
-    v.emplace_back(0, 0);
-    auto result = align_reads::Aligner::pseudoMSA(queries, target, v);    
-    result.print();
-}
-
-TEST(ComponentTests, align_overlapping) {
-    const char* p[2] = {"../test_data/reads_align.fasta", nullptr};
-    align_reads::Aligner gen_fasta {p, 3, 15, 5, 0.001};
-    auto result = gen_fasta.align_overlapping(gen_fasta.sequences[0]);
-    if (result.valid) result.alignment.print();
-    
-    const char* p2[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
-    align_reads::Aligner gen_fasta2 {p2, 3, 15, 5, 0.001};
-    auto result2 = gen_fasta2.align_overlapping(gen_fasta2.sequences[0]);
-    if (result2.valid) result2.alignment.print();
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> clips;
+    EdlibAlignResult result = edlibAlign(queries[0].c_str(), queries[0].size(),
+            	target.c_str(), target.size(),
+            	edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+    clips.emplace_back(0, 0);
+    std::vector<EdlibAlignResult> results = {result};
+    auto align = align_reads::Aligner::multi_align(queries, target, clips, results);    
+    align.print();
 }
 
 TEST(ComponentTests, all_inputs) {
     const char* reads_path[2] = {"../test_data/fake_reads0.fasta", "../test_data/fake_reads1.fasta"};
     const char* haplotypes_path[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
-    align_reads::Aligner gen {reads_path, 3, 15, 5, 0.001, haplotypes_path};
+    align_reads::Aligner gen {reads_path, pool, 15, 5, 0.001, haplotypes_path};
     EXPECT_EQ(gen.start_of_other_phase, 4);
     EXPECT_EQ(gen.id_to_pos_index[gen.haplotypes_sequences[0][0]->id], 0);
     EXPECT_EQ(gen.id_to_pos_index[gen.haplotypes_sequences[1][0]->id], 0);
     EXPECT_EQ(gen.haplotypes_sequences[0].size(), 1);
-    EXPECT_EQ(gen.haplotypes_sequences[1].size(), 1);
-    
-    auto result = gen.align_overlapping(gen.sequences[0]);
-    if (result.valid) result.alignment.print();
- 
-
+    EXPECT_EQ(gen.haplotypes_sequences[1].size(), 1); 
 }
 
-TEST(ComponentTests, align_hap) {
-    const char* reads_path[2] = {"../test_data/fake_reads0.fasta", "../test_data/fake_reads1.fasta"};
-    const char* haplotypes_path[2] = {"../test_data/fake_haplotype0.fasta", "../test_data/fake_haplotype1.fasta"};
-    align_reads::Aligner gen {reads_path, 3, 15, 5, 0.001, haplotypes_path};
-    
-    for (int i = 0; i < 7; i++) {
-        auto result1 = gen.align_overlapping_plus_haplotypes(gen.sequences[i]);
-        if (result1.valid) {
-            result1.alignment.print();
-        } else {
-            std::cout << i << " is invalid " << std::endl;
-        }
-    }
-    
-}
-*/
+

@@ -111,7 +111,7 @@ private:
     static align_result align_to_target_no_clip(std::vector<std::string>& queries, std::string& target, bool has_hap);
     
     // align queries to target, and also try to align the ins segments
-    static align_result pseudoMSA(std::vector<std::string>& queries, std::string& target,
+    static align_result multi_align(std::vector<std::string>& queries, std::string& target,
         std::vector<std::pair<std::uint32_t, std::uint32_t>>& clips, std::vector<EdlibAlignResult>& edlib_results, bool has_hap=false);
     
     align_overlapping_result align_overlapping(std::unique_ptr<biosoup::NucleicAcid>& seq);
@@ -131,8 +131,6 @@ public:
      
     Data next();
 
-    void test();
-    void test2();
     
     //bool has_next();
     

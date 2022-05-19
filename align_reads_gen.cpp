@@ -12,67 +12,35 @@ static align_reads::Aligner *gen = nullptr;
 
 static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
     if (gen == nullptr) {
-        PyObject *read_paths_list, *hap_paths_list, *item;
+        PyObject *read_paths_list,  *item;
         const char* reads_path[2] = {nullptr, nullptr};
-        const char* haplotypes_path[2] = {nullptr, nullptr};
         
-        if (!PyArg_ParseTuple(args, "OO", &read_paths_list, &hap_paths_list)) return NULL;
+        if (!PyArg_ParseTuple(args, "O", &read_paths_list)) return NULL;
        
-        if (PyList_Check(read_paths_list) && PyList_Size(read_paths_list) >= 1 && PyList_Check(hap_paths_list)) {
+        if (PyList_Check(read_paths_list) && PyList_Size(read_paths_list) >= 1) {
             for (Py_ssize_t i = 0; i < PyList_Size(read_paths_list); i++) {
                 item = PyList_GetItem(read_paths_list, i);
                 if (!item) return NULL;
                 item = PyUnicode_AsEncodedString(item, "UTF-8", "strict");
                 if (!item) return NULL;
                 reads_path[i] = PyBytes_AsString(item);
-            }
-            
-            for (Py_ssize_t i = 0; i < PyList_Size(hap_paths_list); i++) {
-                item = PyList_GetItem(hap_paths_list, i);
-                if (!item) return NULL;
-                item = PyUnicode_AsEncodedString(item, "UTF-8", "strict");
-                if (!item) return NULL;
-                haplotypes_path[i] = PyBytes_AsString(item);           
-            }                 
-            
+            }                                                   
         } else {
             return NULL;
         }
 	
-	std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(THREADS); 
-        if (haplotypes_path[0] == nullptr || haplotypes_path[1] == nullptr) {
-            gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.001, nullptr);
-        } else {
-            gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.001, haplotypes_path);        
-            
-        }      
+	    std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(THREADS);         
+        gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.001);           
     }
     Py_RETURN_NONE;    
 }
 
 // Module method definitions
 static PyObject* generate_features_cpp(PyObject *self, PyObject *args) {
-    align_reads::Data data = gen->next();
-    // Creates tuple to return to python level
-    PyObject* return_tuple = PyTuple_New(2);
-
-    // Create lists of matrices 
-    PyObject* X_list = PyList_New(data.X.size());
-    PyObject* Y_list = PyList_New(data.Y.size());
-
-
-    // fill in lists
-    for (std::uint32_t i = 0; i < data.X.size(); i++) {
-	PyList_SetItem(X_list, i, data.X[i]);				
-    }
-    for (std::uint32_t i = 0; i < data.Y.size(); i++) {
-	PyList_SetItem(Y_list, i, data.Y[i]);				
-    }
+   
+    gen->run();
 	
-    PyTuple_SetItem(return_tuple, 0, X_list);
-    PyTuple_SetItem(return_tuple, 1, Y_list);
-	
-    return return_tuple;
+    Py_RETURN_NONE;
 }
 
 

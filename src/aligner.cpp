@@ -457,7 +457,7 @@ Aligner::align_result Aligner::multi_align(std::vector<std::string> &queries,
         // if there is ins to the left of target...
         if (sub_result.ins_columns.size() > sub_result.target_columns.size()) {
             auto &sub_ins_columns = sub_result.ins_columns[sub_result.target_columns.size()];
-            for (auto & from_column : sub_ins_columns) {
+            for (auto &from_column : sub_ins_columns) {
                 auto &to_column = ins_columns[to_column_id++];
                 to_column[query_position_longest_ins + 1] = from_column[0];
                 for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
@@ -480,10 +480,9 @@ Aligner::align_result Aligner::multi_align(std::vector<std::string> &queries,
 
             auto &sub_ins_columns = sub_result.ins_columns[i];
 
-            for (std::uint32_t j = 0; j < sub_ins_columns.size(); j++) {
-                auto &to_column = ins_columns[to_column_id++];
-
-                auto &from_column = sub_ins_columns[j];
+            for (auto &sub_ins_column : sub_ins_columns) {
+                to_column = ins_columns[to_column_id++];
+                from_column = sub_ins_column;
 
                 to_column[query_position_longest_ins + 1] = from_column[0];
 
@@ -1028,7 +1027,7 @@ void Aligner::align_result::print() {
     if (this->ins_columns.size() > this->target_columns.size()) {
 
         auto &ins_cols = this->ins_columns[this->target_columns.size()];
-        for (auto & ins_column : ins_cols) { // for each ins column here
+        for (auto &ins_column : ins_cols) { // for each ins column here
             std::uint32_t block_index = col_index++ / block_width;
             auto &block = output_blocks[block_index];
             if (block_index > current_block_index) {
@@ -1082,7 +1081,7 @@ void Aligner::align_result::print() {
 
         auto &ins_cols = this->ins_columns[i];
 
-        for (auto & ins_column : ins_cols) { // for each ins column here
+        for (auto &ins_column : ins_cols) { // for each ins column here
             std::uint32_t block_index = col_index++ / block_width;
             auto &block = output_blocks[block_index];
             if (block_index > current_block_index) {

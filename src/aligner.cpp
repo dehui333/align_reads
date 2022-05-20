@@ -611,7 +611,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping(std::unique_ptr<bio
 
     //return align_overlapping_result();
     auto alignment = multi_align(overlapping_reads, target_string, clips, edlib_results, false);
-    return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
+    return {std::move(alignment), std::move(infos), target_id};
 }
 
 Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std::unique_ptr<biosoup::NucleicAcid> &target) {
@@ -700,7 +700,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
         // find overlap with each haplotype
         auto &minimizers = haplotypes_minimizer_engines[i];
         std::vector<biosoup::Overlap> overlaps = minimizers.Map(target, true, false, true);
-        if (overlaps.empty()) return align_overlapping_result();
+        if (overlaps.empty()) return {};
         std::uint32_t best_index = 0;
         std::uint32_t best_score = 0;
         if (overlaps.size() > 1) {
@@ -743,7 +743,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
 
     auto alignment = multi_align(overlapping_seqs, target_string, clips, edlib_results, true);
 
-    return align_overlapping_result(std::move(alignment), std::move(infos), target_id);
+    return {std::move(alignment), std::move(infos), target_id};
 }
 
 Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::uint32_t start_of_other_phase) {

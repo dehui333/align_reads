@@ -242,11 +242,11 @@ std::uint32_t overlap_len(seq_info query_info, seq_info target_info) {
 
 void Aligner::run() {
     find_true_overlaps();   
-    within_each();
-    //find_RAM_overlaps(); 
-    //true_positives();
-    //false_positives();
-    //false_negatives();
+    //within_each();
+    find_RAM_overlaps(); 
+    true_positives();
+    false_positives();
+    false_negatives();
 }
 
 
@@ -628,9 +628,9 @@ void Aligner::true_positives() {
              if (o_info.is_reverse) query_sequence->ReverseAndComplement();
     }
 
-    std::cout << "avg norm dist: " << total_norm_dist / fps.size() << std::endl;
-    std::cout << "avg norm score whole: " << total_norm_score_whole / fps.size() << std::endl;
-    std::cout << "avg norm score part: " << total_norm_score_part / fps.size() << std::endl;
+    std::cout << "avg norm dist: " << total_norm_dist / tps.size() << std::endl;
+    std::cout << "avg norm score whole: " << total_norm_score_whole / tps.size() << std::endl;
+    std::cout << "avg norm score part: " << total_norm_score_part / tps.size() << std::endl;
     std::cout << "----true positives----" << std::endl; 
 
 }
@@ -697,7 +697,7 @@ void Aligner::false_positives() {
 
 Aligner::Aligner(const char** sequences_paths, std::shared_ptr<thread_pool::ThreadPool>& pool, std::uint8_t kmer_len, 
     std::uint8_t window_len, double freq) 
-    : pool(pool), minimizer_engine(pool, kmer_len, window_len, 500, 4, 100, 500) {
+    : pool(pool), minimizer_engine(pool, kmer_len, window_len, 500, 4, 1500, 500) {
     
 	
     //srand (time(NULL));

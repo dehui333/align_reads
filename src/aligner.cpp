@@ -40,19 +40,15 @@ namespace align_reads {
 
     Data Aligner::next() {
         bool has_hap = !haplotypes_sequences.empty();
-
+        align_overlapping_result result;
         if (has_hap) {
-
-            auto result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
-            if (!result.valid) return Data();
-            //result.alignment.print();
-            return result.produce_data(has_hap, start_of_other_phase);
+            result = align_overlapping_plus_haplotypes(sequences[num_processed++]);
         } else {
-            auto result = align_overlapping(sequences[num_processed++]);
-            if (!result.valid) return Data();
-            //result.alignment.print();
-            return result.produce_data(has_hap, start_of_other_phase);
+            result = align_overlapping(sequences[num_processed++]);
         }
+        if (!result.valid) return {};
+        //result.alignment.print();
+        return result.produce_data(has_hap, start_of_other_phase);
 
     }
 

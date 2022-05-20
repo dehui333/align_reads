@@ -697,7 +697,7 @@ Aligner::align_overlapping_result Aligner::align_overlapping_plus_haplotypes(std
     for (std::uint8_t i = 0; i < 2; i++) {
         // find overlap with each haplotype
         auto &minimizers = haplotypes_minimizer_engines[i];
-        std::vector<biosoup::Overlap> overlaps = minimizers.Map(target, true, false, true);
+        overlaps = minimizers.Map(target, true, false, true);
         if (overlaps.empty()) return {};
         std::uint32_t best_index = 0;
         std::uint32_t best_score = 0;
@@ -751,7 +751,6 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
     dims[0] = MATRIX_HEIGHT;
     dims[1] = MATRIX_WIDTH;
 
-    auto &alignment = this->alignment;
     auto &target_columns = alignment.target_columns;
     auto &ins_columns = alignment.ins_columns;
 
@@ -1082,8 +1081,8 @@ void Aligner::align_result::print() {
         auto &ins_cols = this->ins_columns[i];
 
         for (auto &ins_column : ins_cols) { // for each ins column here
-            std::uint32_t block_index = col_index++ / block_width;
-            auto &block = output_blocks[block_index];
+            block_index = col_index++ / block_width;
+            block = output_blocks[block_index];
             if (block_index > current_block_index) {
                 current_block_index++;
                 start_of_blocks.push_back(i);

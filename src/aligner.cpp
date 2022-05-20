@@ -457,9 +457,8 @@ Aligner::align_result Aligner::multi_align(std::vector<std::string> &queries,
         // if there is ins to the left of target...
         if (sub_result.ins_columns.size() > sub_result.target_columns.size()) {
             auto &sub_ins_columns = sub_result.ins_columns[sub_result.target_columns.size()];
-            for (std::uint32_t j = 0; j < sub_ins_columns.size(); j++) {
+            for (auto & from_column : sub_ins_columns) {
                 auto &to_column = ins_columns[to_column_id++];
-                auto &from_column = sub_ins_columns[j];
                 to_column[query_position_longest_ins + 1] = from_column[0];
                 for (std::uint32_t j = 0; j < inserters_at_pos.size(); j++) {
                     to_column[inserters_at_pos[j] + 1] = from_column[j + 1];
@@ -1029,8 +1028,7 @@ void Aligner::align_result::print() {
     if (this->ins_columns.size() > this->target_columns.size()) {
 
         auto &ins_cols = this->ins_columns[this->target_columns.size()];
-        for (std::uint32_t j = 0; j < ins_cols.size(); j++) { // for each ins column here
-            auto &ins_column = ins_cols[j];
+        for (auto & ins_column : ins_cols) { // for each ins column here
             std::uint32_t block_index = col_index++ / block_width;
             auto &block = output_blocks[block_index];
             if (block_index > current_block_index) {
@@ -1084,7 +1082,7 @@ void Aligner::align_result::print() {
 
         auto &ins_cols = this->ins_columns[i];
 
-        for (std::uint32_t j = 0; j < ins_cols.size(); j++) { // for each ins column here
+        for (auto & ins_column : ins_cols) { // for each ins column here
             std::uint32_t block_index = col_index++ / block_width;
             auto &block = output_blocks[block_index];
             if (block_index > current_block_index) {
@@ -1092,7 +1090,6 @@ void Aligner::align_result::print() {
                 start_of_blocks.push_back(i);
             }
 
-            auto &ins_column = ins_cols[j];
             for (std::uint32_t k = 0; k < num_rows; k++) { // move down the column
                 if (k % 2 == 0) {
                     block[k].push_back(ins_column[k / 2]);

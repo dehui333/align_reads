@@ -24,7 +24,7 @@
 
 #define EXTRACT nanosim_extract
 #define RANDOM_SEED 422
-#define OVLP_THRES 3000
+#define OVLP_THRES 0
 #define TARGET_NUM 1000
 
 
@@ -72,10 +72,12 @@ struct overlap_info {
     std::uint32_t overlap_len;
     std::uint32_t score=0;
 
-    std::uint32_t q_o_start;
+    std::uint32_t q_o_begin;
     std::uint32_t q_o_end;
-    std::uint32_t t_o_start;
+    std::uint32_t t_o_begin;
     std::uint32_t t_o_end;
+
+
 
     overlap_info(seq_info q, seq_info t) : query_info(q), target_info(t) {}
 };
@@ -89,10 +91,28 @@ struct comp {
     }	
 };
 
+
+struct id_pair {
+    std::uint32_t id1 = 0;
+    std::uint32_t id2 = 0;
+    std::uint32_t overlap_len = 0;    
+    id_pair(std::uint32_t id1, std::uint32_t id2, std::uint32_t overlap_len) : id1(id1), id2(id2), overlap_len(overlap_len) {}
+};
+
+struct comp2 {
+     bool operator() (const id_pair& lhs, const id_pair& rhs) {
+        if (lhs.id1 != rhs.id1) return lhs.id1 < rhs.id1;
+        return lhs.id2 < rhs.id2;
+    }	
+};
+
 std::set<overlap_info, comp> all_true_overlaps;
 std::set<overlap_info, comp> tps;
 std::set<overlap_info, comp> fps;
 std::set<overlap_info, comp> fns;
+
+std::set<id_pair, comp2> accepts;
+std::set<id_pair, comp2> rejects;
 
 static seq_info nanosim_extract(std::string name) {
     //>NC-004354_15504699;aligned_0_R_9_1481_32
@@ -219,6 +239,42 @@ static seq_info seqreq_extract(std::string name) {
 
 
 }
+/*
+std::uint32_t overlap_len(seq_info query_info, seq_info target_info) {
+	if (query_info.contig != target_info.contig) return 0;     
+    if (query_info.start >= target_info.start && query_info.start < target_info.end) {
+        return query_info.end < target_info.end ? query_info.end - query_info.start : target_info.end - query_info.start;
+	       
+	} else if (query_info.end <= target_info.end && query_info.end > target_info.start) {
+	    return query_info.start < target_info.start ? query_info.end - target_info.start : query_info.end - query_info.start;
+	} else if (target_info.start >= query_info.start && target_info.end <= query_info.end) {
+        return target_info.end - target_info.start;
+    }
+    return 0;	
+}
+*/
+
+/*
+std::uint32_t overlap_len(std::uint32_t q_start, std::uint32_t q_end, std::uint32_t t_start, std::uint32_t t_end) {
+    if (q_start >= t_start && q_start < t_end) {
+        return q_end < t_end ? q_end - q_start : t_end - q_start;
+	       
+	} else if (q_end <= t_end && q_end > t_start) {
+	    return q_start < t_start ? q_end - t_start : q_end - q_start;
+	} else if (t_start >= q_start && t_end <= q_end) {
+        return t_end - t_start;
+    }
+    return 0;
+	
+}
+
+
+
+std::uint32_t overlap_len(const seq_info& query_info, const seq_info& target_info) {
+	if (query_info.contig != target_info.contig) return 0;     
+    return overlap_len(query_info.start, query_info.end, target_info.start, target_info.end);
+}*/
+
 
 std::uint32_t overlap_len_sub(seq_info query_info, seq_info target_info) {
 	if (query_info.contig != target_info.contig) return 0;     
@@ -237,16 +293,56 @@ std::uint32_t overlap_len(seq_info query_info, seq_info target_info) {
 
 
 
+bool locality_bad(EdlibAlignResult& result) {
+    std::uint16_t window_size = 200;
+    std::uint16_t thres = 0.3 * window_size;
+    std::uint16_t count;
+
+    for (std::uint32_t i = 0; i < result.alignmentLength; i++) {
+        if (i % window_size == 0) count = 0;
+        if (result.alignment[i] != 0) count++;
+        if (count >= thres) return true; 
+    }
+
+    return false;
+}
+
+/*
+std::uint32_t overlap_len(const overlap_info& o_info) {
+    if (o_info.query_info.contig != o_info.target_info.contig) return 0;
+    bool q_r = !o_info.query_info.forward;
+    bool t_r = !o_info.target_info.forward;
+    q_r = (q_r != o_info.is_reverse);
+    std::uint32_t q_clip_left = o_info.q_clip_left;
+    std::uint32_t q_clip_right = o_info.q_clip_right;
+    std::uint32_t t_clip_left = o_info.t_clip_left;
+    std::uint32_t t_clip_right = o_info.t_clip_right;
+    if (q_r) {
+        std::swap(q_clip_left, q_clip_right);  
+    }
+    if (t_r) {
+        std::swap(t_clip_left, t_clip_right);
+    }
+
+    return overlap_len(o_info.query_info.start + q_clip_left - q_left_extend, o_info.query_info.end - q_clip_right+q_right_extend, 
+               o_info.target_info.start + t_clip_left - t_left_extend, o_info.target_info.end - t_clip_right + t_right_extend);
+}
+*/
+
+
 
 //------------------------------------------------
 
 void Aligner::run() {
-    find_true_overlaps();   
+    RAM_overlaps_simulated_reads();
+    // find_true_overlaps();   
     //within_each();
-    find_RAM_overlaps(); 
-    true_positives();
-    false_positives();
-    false_negatives();
+    //find_RAM_overlaps(); 
+    //true_positives_align_part();
+    //false_positives_align_part();
+    //true_positives();
+    //false_positives();
+    //false_negatives();
 }
 
 
@@ -339,10 +435,10 @@ void Aligner::within_each() {
             o_info.t_clip_left = t_clip_left;
             o_info.t_clip_right = t_clip_right;
 
-            o_info.q_o_start = o.rhs_begin;
-            o_info.q_o_end = o.rhs_end;
-            o_info.t_o_start = o.lhs_begin;
-            o_info.t_o_end = o.lhs_end;
+            o_info.q_o_begin = q_begin;
+            o_info.q_o_end = q_end;
+            o_info.t_o_begin = t_begin;
+            o_info.t_o_end = t_end;
             o_info.score = o.score;
 
             std::uint32_t query_string_len = s->inflated_len - q_clip_left - q_clip_right;
@@ -377,6 +473,7 @@ void Aligner::within_each() {
 
             edlibFreeAlignResult(result);
         }
+        std::cout << "target_name: " << target_info.name << std::endl;
         std::cout << "-------------------------------------------" << std::endl;
         std::cout << "num tp: " << num_tp << std::endl;    
         std::cout << "avg norm dist tp : " << total_norm_dist_tp/num_tp << std::endl;
@@ -403,12 +500,593 @@ void Aligner::within_each() {
 }
 
 
+void Aligner::RAM_overlaps_simulated_reads() {
+
+    std::uint32_t num_good = 0;
+    std::uint32_t num_bad = 0;
+    double bad_thres = 0.2;
+    double overhang_thres = 500;
+    std::uint32_t num_declared_bad = 0;
+    std::uint32_t num_declared_correctly = 0;
+    std::uint32_t num_declared_wrongly = 0;
+    std::uint32_t num_not_declared_correctly = 0;
+    std::uint32_t num_not_declared_wrongly = 0;
+
+    double total_good_overhang_ratio = 0;
+    double total_bad_overhang_ratio = 0;
+
+    std::uint32_t num_tp = 0;
+    std::uint32_t num_fp = 0;
+    std::uint32_t num_rejected_tp = 0;
+    std::uint32_t num_rejected_fp = 0;
+    double total_tp_norm_dist = 0;
+    double total_fp_norm_dist = 0;
+    std::uint32_t num_good_tp = 0;
+    std::uint32_t num_bad_tp = 0;
+
+    std::uint32_t num_locality_good = 0;
+    std::uint32_t num_locality_bad = 0;
+    std::uint32_t locality_good_reject = 0;
+    std::uint32_t locality_bad_reject = 0;
+    std::uint32_t locality_good_tp  = 0;
+    std::uint32_t locality_bad_tp = 0;
+
+
+
+    auto sort_by_qid = [] (biosoup::Overlap& o1, biosoup::Overlap& o2) {
+        return o1.rhs_id < o2.rhs_id;     
+    };
+
+
+    for (auto i = 0; i < TARGET_NUM; i++) {
+        auto& target_sequence = sequences[i];
+        std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target_sequence, true, false, true);          
+        std::sort(overlaps.begin(), overlaps.end(), sort_by_qid);
+        std::uint32_t j = 0;
+        auto target_info = EXTRACT(target_sequence->name);
+        while (j < overlaps.size()) {
+            std::vector<biosoup::Overlap> for_same_seq;
+
+            while (true) {
+                for_same_seq.push_back(overlaps[j]);
+                j++;
+                if (j >= overlaps.size() || overlaps[j].rhs_id != overlaps[j-1].rhs_id) break;                      
+             }
+             for (auto& o: for_same_seq) {
+                 std::cout << "---------------------------" << std::endl;
+                 auto& query_sequence = sequences[id_to_pos_index[o.rhs_id]];
+                 auto query_info = EXTRACT(query_sequence->name);
+                 //std::cout << "q_o_begin: " << o.rhs_begin << " q_o_end: " << o.rhs_end << std::endl;
+                 //std::cout << "t_o_begin: " << o.lhs_begin << " t_o_end: " << o.lhs_end << std::endl;
+
+
+
+                 std::uint32_t t_o_begin = o.lhs_begin;
+                 std::uint32_t t_o_end = o.lhs_end;
+                 std::uint32_t q_o_begin = o.rhs_begin;
+                 std::uint32_t q_o_end = o.rhs_end;
+
+                 std::cout << "q_full_len: " << query_sequence->inflated_len << std::endl;
+                 std::cout << "t_full_len: " << target_sequence->inflated_len << std::endl;
+                 //std::cout << "t_begin: " << o.lhs_begin << " t_end: " << o.lhs_end << std::endl;
+                 //std::cout << "q_begin: " << o.rhs_begin << " q_end: " << o.rhs_end << std::endl;
+                  
+                 if (!o.strand) {
+                     query_sequence->ReverseAndComplement();
+                     q_o_end = query_sequence->inflated_len - o.rhs_begin;
+                     q_o_begin = query_sequence->inflated_len - o.rhs_end;
+                 }
+                 int protrude_left = q_o_begin - t_o_begin;
+                 int protrude_right = (query_sequence->inflated_len - q_o_end) - (target_sequence->inflated_len - t_o_end);
+                 
+
+                 std::uint32_t q_clip_left;
+                 std::uint32_t q_clip_right;
+                 std::uint32_t t_clip_left;
+                 std::uint32_t t_clip_right;
+                 if (protrude_left > 0) {
+                     q_clip_left = protrude_left;
+                     t_clip_left = 0;
+                 } else {
+                     q_clip_left = 0;
+                     t_clip_left = -protrude_left;
+                 }
+                 if (protrude_right > 0) {
+                     q_clip_right = protrude_right;
+                     t_clip_right = 0;
+                 } else {
+                     q_clip_right = 0;
+                     t_clip_right = -protrude_right;
+                 }
+                 std::uint32_t left_overhang = q_o_begin - q_clip_left;
+                 std::uint32_t right_overhang = query_sequence->inflated_len - q_clip_right - q_o_end;
+                
+                 std::uint32_t larger = std::max(left_overhang, right_overhang);
+
+                 std::uint32_t query_string_len = query_sequence->inflated_len - q_clip_left - q_clip_right;         
+                 std::uint32_t target_string_len = target_sequence->inflated_len - t_clip_left - t_clip_right;
+
+                 double overhang_ratio = (double) (left_overhang + right_overhang) / std::min(query_string_len, target_string_len);
+
+                 std::string target_string = target_sequence-> InflateData(t_clip_left, target_string_len);
+                 std::string query_string = query_sequence->InflateData(q_clip_left, query_string_len);
+              
+                 EdlibAlignResult result = edlibAlign(query_string.c_str(), query_string.size(),
+                    target_string.c_str(), target_string.size(),
+                    edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
+
+                 double norm_dist = (double) result.editDistance/query_string_len;
+
+                 bool is_locality_bad = locality_bad(result);
+                 std::uint32_t ovlp_len = overlap_len(query_info, target_info);
+                 bool is_tp  = ovlp_len > OVLP_THRES;
+                 if (is_tp) {
+                     num_tp++;
+                     total_tp_norm_dist += norm_dist;
+                     
+                 } else {
+                     num_fp++;
+                     total_fp_norm_dist += norm_dist;
+                 }
+
+                 bool declared_bad = false;
+                 bool bad = false;
+                 if (norm_dist > bad_thres) {
+                     bad =true;
+                     if (is_tp) {
+                         num_bad_tp++;
+                         std::cout << "BAD TP" << std::endl;
+                     }   
+
+                 } else {
+                     if (is_tp) {
+                         num_good_tp++;
+                         std::cout << "GOOD TP" << std::endl;
+                     }
+
+                 }
+
+                 if (larger > overhang_thres) {
+                     declared_bad = true;
+                 }
+                 
+                 if (declared_bad) {
+                     bool left_ok = true;
+                     bool right_ok = true;
+                     if (left_overhang > overhang_thres) {
+                         left_ok=false;
+                         EdlibAlignResult result = edlibAlign(query_string.c_str()+100, 100,
+                             target_string.c_str(), 300,
+                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
+                         if ((double) result.editDistance/100 <0.2) left_ok = true;
+                         std::cout << "----left ok: " << (double) result.editDistance/100 << std::endl;
+                         edlibFreeAlignResult(result);
+                     } 
+
+                     if (right_overhang > overhang_thres) {
+                         right_ok=false;
+                         EdlibAlignResult result = edlibAlign(query_string.c_str()+ query_string.size() - 200, 100,
+                             target_string.c_str() + target_string.size() - 300, 300,
+                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
+                         if ((double) result.editDistance/100 <0.2) right_ok = true;
+                         std::cout << "----right ok: " << (double) result.editDistance/100 << std::endl;
+                         edlibFreeAlignResult(result);
+                     }
+                     if (left_ok && right_ok) {
+                         declared_bad = false;
+                     } else {
+                         num_declared_bad++;
+                     }
+                 }
+                 // ---------------
+                 //declared_bad = false;
+                 //-------------
+                 if (declared_bad) {
+                     if (is_tp) {
+                         num_rejected_tp++;
+                         std::cout << "REJECT TP" << std::endl;
+
+                     } else {
+                         num_rejected_fp++;
+
+                     }
+                 }
+
+                 if (declared_bad) {
+                     rejects.emplace(query_info.id, target_info.id, ovlp_len);   
+                 } else {
+
+                    accepts.emplace(query_info.id, target_info.id, ovlp_len);
+                 }
+
+                 if (is_locality_bad) {
+                     num_locality_bad++;
+                     std::cout << "LOCALITY BAD ";
+                     if (declared_bad) { 
+                         locality_bad_reject++;
+                         std::cout << "REJECT";
+                     } else {
+                         std::cout << "ACCEPT";
+                     }
+                     if (is_tp) {
+                         locality_bad_tp++;
+                         std::cout << "LOCALITY BAD TP" << std::endl;
+                     }
+                         
+                 } else {
+                     num_locality_good++;
+                     std::cout << "LOCALITY GOOD ";
+                     if (declared_bad) {
+                         locality_good_reject++;
+                         std::cout << "REJECT";
+                     } else {
+                         std::cout << "ACCEPT";
+                     }
+                     if (is_tp){
+                          locality_good_tp++;
+                          std::cout << "LOCALITY GOOD TP" << std::endl;
+                     }
+
+                 }
+                 std::cout << std::endl;
+
+
+                
+                 if (bad) {
+                     num_bad++;
+                     total_bad_overhang_ratio += overhang_ratio;
+                     if (declared_bad) {
+                         num_declared_correctly++;
+                         std::cout << "CORRECTLY DECLARED" << std::endl;
+                     } else {
+                         num_not_declared_wrongly++;
+                         std::cout << "WRONGLY NOT DECLARED" << std::endl; 
+                     }
+
+                 } else {
+                     num_good++;
+                     total_good_overhang_ratio += overhang_ratio;
+                     if (declared_bad) {
+                         num_declared_wrongly++;
+                         std::cout << "WRONGLY DECLARED" << std::endl;
+                     } else {
+                         num_not_declared_correctly++;
+                         std::cout << "CORRECTLY NOT DECLARED" << std::endl; 
+                     }
+                 }
+                 if (is_tp) {
+                     std::cout << "TP" << std::endl;
+                 } else {
+                     std::cout << "FP" << std::endl;
+                 }
+                 std::cout << "qid: " << query_sequence->id << " tid: " << target_sequence->id << std::endl;
+                 std::cout << "norm dist " << norm_dist << std::endl;
+                 std::cout << "reverse?: " << !o.strand << std::endl;
+                 std::cout << "q_clip_left: " << q_clip_left << " query_clip_right: " << q_clip_right << std::endl;
+                 std::cout << "t_clip_left: " << t_clip_left << " target_clip_right: " << t_clip_right << std::endl;
+                 std::cout << "q_o_begin: " << q_o_begin << " q_o_end: " << q_o_end << std::endl;
+                 std::cout << "t_o_begin: " << t_o_begin << " t_o_end: " << t_o_end << std::endl;
+                 std::cout << "clipped q len: " << query_string.size() << " clipped t len: " << target_string.size() << std::endl;
+                 std::cout << "left overhang: " << left_overhang << std::endl;
+                 std::cout << "right overhang: " << right_overhang << std::endl;
+                 std::cout << "overlap len: " << overlap_len(query_info, target_info) << std::endl;
+
+
+                 std::vector<std::string> overlapping_reads;
+                 overlapping_reads.push_back(std::move(query_string));
+                 std::vector<std::pair<std::uint32_t, std::uint32_t>> clips;
+                 clips.emplace_back(0, 0);
+                 std::vector<EdlibAlignResult> rs = {result};
+                 auto alignment = multi_align(overlapping_reads, target_string, clips, rs, false);
+                 alignment.print();
+                 //edlibFreeAlignResult(result);
+                 if (!o.strand) query_sequence->ReverseAndComplement();
+             }
+
+        }
+
+    }
+    for (auto& e: accepts) {
+        rejects.erase(e);
+    }
+    std::uint32_t pair_tp = 0;
+    std::uint32_t pair_fp = 0;
+    std::uint32_t pair_tn = 0;
+    std::uint32_t pair_fn = 0;
+    for (auto& e: accepts) {
+        if (e.overlap_len > OVLP_THRES) {
+            pair_tp++;
+        } else {
+            pair_fp++;
+        }
+    }
+
+    for (auto& e: rejects) {
+        if (e.overlap_len > OVLP_THRES) {
+            pair_fn++;
+        } else {
+            pair_tn++;
+        }
+    }
+    std::cout << "pair tp : " << pair_tp << " pair fp: " << pair_fp << std::endl;
+    std::cout << "pair tn: " << pair_tn << " pair fn: " << pair_fn << std::endl;
+    std::cout << "pair prec: " << (double) pair_tp/ (pair_tp + pair_fp) << std::endl;
+    std::cout << "pair recall: " << (double) pair_tp / (pair_tp + pair_fn) << std::endl;
+
+
+    std::cout << "---------------" << std::endl;
+    std::cout << "num good: " << num_good << std::endl;
+    std::cout << "num bad: " << num_bad << std::endl;
+    std::cout << "avg good overhang ratio: " << total_good_overhang_ratio / num_good << std::endl;
+    std::cout << "avg bad overhang ratio: " << total_bad_overhang_ratio / num_bad << std::endl;
+    std::cout << "num declared bad: " << num_declared_bad << std::endl;
+    std::cout << "num declared correctly: " << num_declared_correctly << std::endl;
+    std::cout << "num declared wrongly: " << num_declared_wrongly << std::endl;
+    std::cout << "num not declared correctly: " << num_not_declared_correctly << std::endl;
+    std::cout << "num not declared wrongly: " << num_not_declared_wrongly << std::endl;
+    std::cout << "recall of good: " << (double) num_not_declared_correctly/(num_not_declared_correctly + num_declared_wrongly) << std::endl;
+    std::cout << "precision of good: " << (double) num_not_declared_correctly /(num_not_declared_correctly + num_not_declared_wrongly) << std::endl;
+    std::cout << "-----------------" << std::endl;
+    std::cout << "num tp: " << num_tp << " num fp: " << num_fp << std::endl;
+    std::cout << "avg norm dist tp: " << (double) total_tp_norm_dist/num_tp << " avg norm dist fp: " << (double) total_fp_norm_dist/num_fp << std::endl;
+    std::cout << "num rejected tp: " << num_rejected_tp << " num rejected fp: " << num_rejected_fp << std::endl;
+    std::cout << "num good tp: " << num_good_tp << " num bad tp:" << num_bad_tp << std::endl;
+    std::cout << "---------------" << std::endl;
+    std::cout << "num locality good: " << num_locality_good << std::endl;
+    std::cout << "num locality bad: " << num_locality_bad << std::endl;
+    std::cout << "num locality good reject: " << locality_good_reject << std::endl;
+    std::cout << "num locality bad reject: " << locality_bad_reject << std::endl;
+    std::cout << "num locality good tp: " << locality_good_tp << std::endl;
+    std::cout << "num locality bad tp: " << locality_bad_tp << std::endl;
+
+
+}
+
+
+
+
+void Aligner::RAM_overlaps_true_reads() {
+
+    std::uint32_t num_good = 0;
+    std::uint32_t num_bad = 0;
+    double bad_thres = 0.2;
+    double overhang_thres = 500;
+    std::uint32_t num_declared_bad = 0;
+    std::uint32_t num_declared_correctly = 0;
+    std::uint32_t num_declared_wrongly = 0;
+    std::uint32_t num_not_declared_correctly = 0;
+    std::uint32_t num_not_declared_wrongly = 0;
+
+    std::uint32_t num_locality_good = 0;
+    std::uint32_t num_locality_bad = 0;
+    std::uint32_t locality_good_reject = 0;
+    std::uint32_t locality_bad_reject = 0;
+
+
+    double total_good_overhang_ratio = 0;
+    double total_bad_overhang_ratio = 0;
+
+    auto sort_by_qid = [] (biosoup::Overlap& o1, biosoup::Overlap& o2) {
+        return o1.rhs_id < o2.rhs_id;     
+    };
+
+
+    for (auto i = 0; i < TARGET_NUM; i++) {
+        auto& target_sequence = sequences[i];
+        std::vector<biosoup::Overlap> overlaps = minimizer_engine.Map(target_sequence, true, false, true);          
+        std::sort(overlaps.begin(), overlaps.end(), sort_by_qid);
+        std::uint32_t j = 0;
+        while (j < overlaps.size()) {
+            std::vector<biosoup::Overlap> for_same_seq;
+
+            while (true) {
+                for_same_seq.push_back(overlaps[j]);
+                j++;
+                if (j >= overlaps.size() || overlaps[j].rhs_id != overlaps[j-1].rhs_id) break;                      
+             }
+             for (auto& o: for_same_seq) {
+                 std::cout << "---------------------------" << std::endl;
+                 auto& query_sequence = sequences[id_to_pos_index[o.rhs_id]];
+                 //std::cout << "q_o_begin: " << o.rhs_begin << " q_o_end: " << o.rhs_end << std::endl;
+                 //std::cout << "t_o_begin: " << o.lhs_begin << " t_o_end: " << o.lhs_end << std::endl;
+
+                
+                 std::uint32_t t_o_begin = o.lhs_begin;
+                 std::uint32_t t_o_end = o.lhs_end;
+                 std::uint32_t q_o_begin = o.rhs_begin;
+                 std::uint32_t q_o_end = o.rhs_end;
+
+                 std::cout << "q_full_len: " << query_sequence->inflated_len << std::endl;
+                 std::cout << "t_full_len: " << target_sequence->inflated_len << std::endl;
+                 //std::cout << "t_begin: " << o.lhs_begin << " t_end: " << o.lhs_end << std::endl;
+                 //std::cout << "q_begin: " << o.rhs_begin << " q_end: " << o.rhs_end << std::endl;
+
+                 if (!o.strand) {
+                     query_sequence->ReverseAndComplement();
+                     q_o_end = query_sequence->inflated_len - o.rhs_begin;
+                     q_o_begin = query_sequence->inflated_len - o.rhs_end;
+                 }
+                 int protrude_left = q_o_begin - t_o_begin;
+                 int protrude_right = (query_sequence->inflated_len - q_o_end) - (target_sequence->inflated_len - t_o_end);
+                 
+
+                 std::uint32_t q_clip_left;
+                 std::uint32_t q_clip_right;
+                 std::uint32_t t_clip_left;
+                 std::uint32_t t_clip_right;
+                 if (protrude_left > 0) {
+                     q_clip_left = protrude_left;
+                     t_clip_left = 0;
+                 } else {
+                     q_clip_left = 0;
+                     t_clip_left = -protrude_left;
+                 }
+                 if (protrude_right > 0) {
+                     q_clip_right = protrude_right;
+                     t_clip_right = 0;
+                 } else {
+                     q_clip_right = 0;
+                     t_clip_right = -protrude_right;
+                 }
+                 std::uint32_t left_overhang = q_o_begin - q_clip_left;
+                 std::uint32_t right_overhang = query_sequence->inflated_len - q_clip_right - q_o_end;
+                
+                 std::uint32_t larger = std::max(left_overhang, right_overhang);
+
+                 std::uint32_t query_string_len = query_sequence->inflated_len - q_clip_left - q_clip_right;         
+                 std::uint32_t target_string_len = target_sequence->inflated_len - t_clip_left - t_clip_right;
+
+                 double overhang_ratio = (double) (left_overhang + right_overhang) / std::min(query_string_len, target_string_len);
+
+                 std::string target_string = target_sequence-> InflateData(t_clip_left, target_string_len);
+                 std::string query_string = query_sequence->InflateData(q_clip_left, query_string_len);
+              
+                 EdlibAlignResult result = edlibAlign(query_string.c_str(), query_string.size(),
+                    target_string.c_str(), target_string.size(),
+                    edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
+
+                 double norm_dist = (double) result.editDistance/query_string_len;
+                 bool is_locality_bad = locality_bad(result);
+             
+
+                 bool declared_bad = false;
+                 bool bad = false;
+                 if (norm_dist > bad_thres) bad =true;
+                
+                
+
+                 if (larger > overhang_thres) {
+                     declared_bad = true;
+                 }
+                 
+                 if (declared_bad) {
+                     bool left_ok = true;
+                     bool right_ok = true;
+                     if (left_overhang > overhang_thres) {
+                         left_ok=false;
+                         EdlibAlignResult result = edlibAlign(query_string.c_str()+100, 100,
+                             target_string.c_str(), 300,
+                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
+                         if ((double) result.editDistance/100 <0.2) left_ok = true;
+                         std::cout << "----left ok: " << (double) result.editDistance/100 << std::endl;
+                         edlibFreeAlignResult(result);
+                     } 
+
+                     if (right_overhang > overhang_thres) {
+                         right_ok=false;
+                         EdlibAlignResult result = edlibAlign(query_string.c_str()+ query_string.size() - 200, 100,
+                             target_string.c_str() + target_string.size() - 300, 300,
+                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
+                         if ((double) result.editDistance/100 <0.2) right_ok = true;
+                         std::cout << "----right ok: " << (double) result.editDistance/100 << std::endl;
+                         edlibFreeAlignResult(result);
+                     }
+                     if (left_ok && right_ok) {
+                         declared_bad = false;
+                     } else {
+                         num_declared_bad++;
+                     }
+                 }
+
+                 if (is_locality_bad) {
+                     num_locality_bad++;
+                     std::cout << "LOCALITY BAD ";
+                     if (declared_bad) { 
+                         locality_bad_reject++;
+                         std::cout << "REJECT";
+                     } else {
+                         std::cout << "ACCEPT";
+                     }
+                         
+                 } else {
+                     num_locality_good++;
+                     std::cout << "LOCALITY GOOD ";
+                     if (declared_bad) {
+                         locality_good_reject++;
+                         std::cout << "REJECT";
+                     } else {
+                         std::cout << "ACCEPT";
+                     }
+                 }
+                 std::cout << std::endl;
+
+
+                
+                 if (bad) {
+                     num_bad++;
+                     total_bad_overhang_ratio += overhang_ratio;
+                     if (declared_bad) {
+                         num_declared_correctly++;
+                         std::cout << "CORRECTLY DECLARED" << std::endl;
+                     } else {
+                         num_not_declared_wrongly++;
+                         std::cout << "WRONGLY NOT DECLARED" << std::endl; 
+                     }
+
+                 } else {
+                     num_good++;
+                     total_good_overhang_ratio += overhang_ratio;
+                     if (declared_bad) {
+                         num_declared_wrongly++;
+                         std::cout << "WRONGLY DECLARED" << std::endl;
+                     } else {
+                         num_not_declared_correctly++;
+                         std::cout << "CORRECTLY NOT DECLARED" << std::endl; 
+                     }
+                 }
+
+                 std::cout << "qid: " << query_sequence->id << " tid: " << target_sequence->id << std::endl;
+                 std::cout << "norm dist " << norm_dist << std::endl;
+                 std::cout << "reverse?: " << !o.strand << std::endl;
+                 std::cout << "q_clip_left: " << q_clip_left << " query_clip_right: " << q_clip_right << std::endl;
+                 std::cout << "t_clip_left: " << t_clip_left << " target_clip_right: " << t_clip_right << std::endl;
+                 std::cout << "q_o_begin: " << q_o_begin << " q_o_end: " << q_o_end << std::endl;
+                 std::cout << "t_o_begin: " << t_o_begin << " t_o_end: " << t_o_end << std::endl;
+                 std::cout << "clipped q len: " << query_string.size() << " clipped t len: " << target_string.size() << std::endl;
+                 std::cout << "left overhang: " << left_overhang << std::endl;
+                 std::cout << "right overhang: " << right_overhang << std::endl;
+
+
+                 std::vector<std::string> overlapping_reads;
+                 overlapping_reads.push_back(std::move(query_string));
+                 std::vector<std::pair<std::uint32_t, std::uint32_t>> clips;
+                 clips.emplace_back(0, 0);
+                 std::vector<EdlibAlignResult> rs = {result};
+                 auto alignment = multi_align(overlapping_reads, target_string, clips, rs, false);
+                 alignment.print();
+                 //edlibFreeAlignResult(result);
+                 if (!o.strand) query_sequence->ReverseAndComplement();
+             }
+
+        }
+
+
+
+    }
+    std::cout << "num good: " << num_good << std::endl;
+    std::cout << "num bad: " << num_bad << std::endl;
+    std::cout << "avg good overhang ratio: " << total_good_overhang_ratio / num_good << std::endl;
+    std::cout << "avg bad overhang ratio: " << total_bad_overhang_ratio / num_bad << std::endl;
+    std::cout << "num declared bad: " << num_declared_bad << std::endl;
+    std::cout << "num declared correctly: " << num_declared_correctly << std::endl;
+    std::cout << "num declared wrongly: " << num_declared_wrongly << std::endl;
+    std::cout << "num not declared correctly: " << num_not_declared_correctly << std::endl;
+    std::cout << "num not declared wrongly: " << num_not_declared_wrongly << std::endl;
+    std::cout << "recall of good: " << (double) num_not_declared_correctly/(num_not_declared_correctly + num_declared_wrongly) << std::endl;
+    std::cout << "precision of good: " << (double) num_not_declared_correctly /(num_not_declared_correctly + num_not_declared_wrongly) << std::endl;
+    std::cout << "num locality good: " << num_locality_good << std::endl;
+    std::cout << "num locality bad: " << num_locality_bad << std::endl;
+    std::cout << "num locality good reject: " << locality_good_reject << std::endl;
+    std::cout << "num locality bad reject: " << locality_bad_reject << std::endl;
+
+
+}
+
 
 
 void Aligner::find_RAM_overlaps() {
 
     
-
     for (auto i = 0; i < TARGET_NUM; i++) {
         auto& target = sequences[i];
         std::uint32_t target_id = target->id;
@@ -435,6 +1113,7 @@ void Aligner::find_RAM_overlaps() {
             }
             int protrude_left = q_begin - t_begin;
             int protrude_right = (s->inflated_len - q_end) - (target->inflated_len - t_end);
+            
 
             std::uint32_t q_clip_left;
             std::uint32_t q_clip_right;
@@ -454,17 +1133,17 @@ void Aligner::find_RAM_overlaps() {
                 q_clip_right = 0;
                 t_clip_right = -protrude_right;
             }
-  
-                       
+
+                      
             o_info.q_clip_left = q_clip_left;
             o_info.q_clip_right = q_clip_right;
             o_info.t_clip_left = t_clip_left;
             o_info.t_clip_right = t_clip_right;
 
-            o_info.q_o_start = o.rhs_begin;
-            o_info.q_o_end = o.rhs_end;
-            o_info.t_o_start = o.lhs_begin;
-            o_info.t_o_end = o.lhs_end;
+            o_info.q_o_begin = q_begin;
+            o_info.q_o_end = q_end;
+            o_info.t_o_begin = t_begin;
+            o_info.t_o_end = t_end;
             o_info.score = o.score;
 
             if (overlap_len(query_info, target_info) > OVLP_THRES) {
@@ -475,21 +1154,20 @@ void Aligner::find_RAM_overlaps() {
         }
     }
 
-    for (auto& o_info: all_true_overlaps) {
+    /*for (auto& o_info: all_true_overlaps) {
         if (tps.find(o_info) == tps.end()) {
             fns.insert(o_info);
         }
-    }
+    }*/
 
     std::cout << "precision: " << ((double) tps.size() / (tps.size() + fps.size())) << std::endl;
-    std::cout << "recall: " << ((double) tps.size() / all_true_overlaps.size()) << std::endl;
+    //std::cout << "recall: " << ((double) tps.size() / all_true_overlaps.size()) << std::endl;
 }
 
 
 
 void Aligner::false_negatives() {
     std::cout << "----false negatives----" << std::endl; 
-    // true positives
     for (auto& o_info : fns) {
         if (!o_info.query_info.aligned || !o_info.target_info.aligned) {
             continue;
@@ -576,6 +1254,192 @@ void Aligner::false_negatives() {
                      
     }
 }
+void Aligner::false_positives_align_part() {
+
+    std::cout << "----false positives----" << std::endl; 
+    
+    double total_norm_dist = 0;
+    double total_norm_score_whole = 0;
+    double total_norm_score_part = 0;
+    std::uint32_t count_0001 = 0;
+    std::uint32_t count_0102 = 0;
+    std::uint32_t count_0203 = 0;
+    std::uint32_t count_0304 = 0;
+    std::uint32_t count_greater = 0;
+
+
+    for (auto& o_info : fps) {
+         
+         auto& query_sequence = sequences[o_info.query_info.idx_in_sequences];
+         auto& target_sequence = sequences[o_info.target_info.idx_in_sequences];
+         
+         if (o_info.is_reverse) query_sequence->ReverseAndComplement();
+    
+         
+         std::uint32_t t_o_begin = o_info.t_o_begin;
+         std::uint32_t t_o_end = o_info.t_o_end;
+         std::uint32_t q_o_begin = o_info.q_o_begin;
+         std::uint32_t q_o_end = o_info.q_o_end;
+         std::uint32_t query_string_len = q_o_end -  q_o_begin;
+         std::uint32_t target_string_len = t_o_end - t_o_begin;
+         std::string target_string = target_sequence-> InflateData(t_o_begin, target_string_len);
+         std::string query_string = query_sequence->InflateData(q_o_begin, query_string_len);
+         
+
+         EdlibAlignResult result = edlibAlign(query_string.c_str(), query_string.size(),
+             target_string.c_str(), target_string.size(),
+             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
+
+         double norm_dist =  (double) result.editDistance/query_string_len;    
+         total_norm_dist += norm_dist;     
+         total_norm_score_whole = (double) o_info.score / std::max(query_string_len, target_string_len);
+         total_norm_score_part = (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_begin, o_info.q_o_end - o_info.q_o_begin); 
+
+         std::vector<std::string> overlapping_reads;
+         overlapping_reads.push_back(std::move(query_string));
+         std::vector<std::pair<std::uint32_t, std::uint32_t>> clips;
+         clips.emplace_back(0, 0);
+         std::vector<EdlibAlignResult> rs = {result};
+         auto alignment = multi_align(overlapping_reads, target_string, clips, rs, false);
+         std::cout << "query name: " << o_info.query_info.name << std::endl;
+         std::cout << "target name: " << o_info.target_info.name << std::endl;
+         std::cout << "query_start: " << o_info.query_info.start << " query_end: " << o_info.query_info.end << std::endl;
+         std::cout << "q_o_begin: " << o_info.q_o_begin << " q_o_end: " << o_info.q_o_end << std::endl;
+         std::cout << "t_start: " << o_info.target_info.start << " target_end: " << o_info.target_info.end << std::endl;
+         std::cout << "t_o_begin: " << o_info.t_o_begin << " t_o_end: " << o_info.t_o_end << std::endl;
+         std::uint32_t ovlp_len = overlap_len(o_info.query_info, o_info.target_info);
+         std::cout << "overlap len: " << ovlp_len << std::endl;
+         std::cout << "norm dist: " << norm_dist << std::endl;
+         std::cout << "norm score whole: " << (double) o_info.score / std::max(query_string_len, target_string_len) << std::endl;
+         std::cout << "norm score part: " <<  (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_begin, o_info.q_o_end - o_info.q_o_begin) << std::endl; 
+         //std::cout << "q_o_left: " << o_info.q_o_left << " query_o_right: " << o_info.q_o_right << std::endl;
+         //std::cout << "t_o_left: " << o_info.t_o_left << " target_o_right: " << o_info.t_o_right << std::endl;
+         if (norm_dist < 0.1) {
+             count_0001++;   
+         } else if (norm_dist < 0.2) {
+             count_0102++;   
+         } else if (norm_dist < 0.3) {
+            count_0203++;
+         } else if (norm_dist < 0.4) {
+            count_0304++;
+         } else {
+            count_greater++;     
+         }
+
+
+
+         alignment.print();
+
+         if (o_info.is_reverse) query_sequence->ReverseAndComplement();
+    }
+
+    std::cout << "avg norm dist: " << total_norm_dist / tps.size() << std::endl;
+    std::cout << "avg norm score whole: " << total_norm_score_whole / tps.size() << std::endl;
+    std::cout << "avg norm score part: " << total_norm_score_part / tps.size() << std::endl;
+    std::cout << "count [0, 0.1): " << count_0001 << std::endl;
+    std::cout << "count [0.1, 0.2): " << count_0102 << std::endl;
+    std::cout << "count [0.2, 0.3): " << count_0203 << std::endl;
+    std::cout << "count [0.3, 0.4): " << count_0304 << std::endl;
+    std::cout << "count >= 0.4: " << count_greater << std::endl;
+
+
+    std::cout << "----false positives----" << std::endl; 
+
+}
+
+
+void Aligner::true_positives_align_part() {
+
+    std::cout << "----true positives----" << std::endl; 
+    
+    double total_norm_dist = 0;
+    double total_norm_score_whole = 0;
+    double total_norm_score_part = 0;
+    std::uint32_t count_0001 = 0;
+    std::uint32_t count_0102 = 0;
+    std::uint32_t count_0203 = 0;
+    std::uint32_t count_0304 = 0;
+    std::uint32_t count_greater = 0;
+
+
+    // true positives
+    for (auto& o_info : tps) {
+         
+         auto& query_sequence = sequences[o_info.query_info.idx_in_sequences];
+         auto& target_sequence = sequences[o_info.target_info.idx_in_sequences];
+         
+         if (o_info.is_reverse) query_sequence->ReverseAndComplement();
+    
+         
+         std::uint32_t t_o_begin = o_info.t_o_begin;
+         std::uint32_t t_o_end = o_info.t_o_end;
+         std::uint32_t q_o_begin = o_info.q_o_begin;
+         std::uint32_t q_o_end = o_info.q_o_end;
+      
+         std::uint32_t query_string_len = q_o_end - q_o_begin;
+         std::uint32_t target_string_len = t_o_end - t_o_begin;
+         std::string target_string = target_sequence-> InflateData(t_o_begin, target_string_len);
+         std::string query_string = query_sequence->InflateData(q_o_begin, query_string_len);
+         
+
+         EdlibAlignResult result = edlibAlign(query_string.c_str(), query_string.size(),
+             target_string.c_str(), target_string.size(),
+             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
+
+         double norm_dist = (double) result.editDistance/query_string_len;       
+         total_norm_dist += norm_dist;  
+         total_norm_score_whole = (double) o_info.score / std::max(query_string_len, target_string_len);
+         total_norm_score_part = (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_begin, o_info.q_o_end - o_info.q_o_begin); 
+
+         std::vector<std::string> overlapping_reads;
+         overlapping_reads.push_back(std::move(query_string));
+         std::vector<std::pair<std::uint32_t, std::uint32_t>> clips;
+         clips.emplace_back(0, 0);
+         std::vector<EdlibAlignResult> rs = {result};
+         auto alignment = multi_align(overlapping_reads, target_string, clips, rs, false);
+         std::cout << "query name: " << o_info.query_info.name << std::endl;
+         std::cout << "target name: " << o_info.target_info.name << std::endl;
+         std::cout << "query_start: " << o_info.query_info.start << " query_end: " << o_info.query_info.end << std::endl;
+         std::cout << "q_o_begin: " << o_info.q_o_begin << " q_o_end: " << o_info.q_o_end << std::endl;
+         std::cout << "t_start: " << o_info.target_info.start << " target_end: " << o_info.target_info.end << std::endl;
+         std::cout << "t_o_begin: " << o_info.t_o_begin << " t_o_end: " << o_info.t_o_end << std::endl;
+         std::uint32_t ovlp_len = overlap_len(o_info.query_info, o_info.target_info);
+         std::cout << "overlap len: " << ovlp_len << std::endl;
+         std::cout << "norm dist: " << norm_dist << std::endl;
+         std::cout << "norm score whole: " << (double) o_info.score / std::max(query_string_len, target_string_len) << std::endl;
+         std::cout << "norm score part: " <<  (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_begin, o_info.q_o_end - o_info.q_o_begin) << std::endl; 
+         //std::cout << "q_o_left: " << o_info.q_o_left << " query_o_right: " << o_info.q_o_right << std::endl;
+         //std::cout << "t_o_left: " << o_info.t_o_left << " target_o_right: " << o_info.t_o_right << std::endl;
+  
+         if (norm_dist < 0.1) {
+             count_0001++;   
+         } else if (norm_dist < 0.2) {
+             count_0102++;   
+         } else if (norm_dist < 0.3) {
+            count_0203++;
+         } else if (norm_dist < 0.4) {
+            count_0304++;
+         } else {
+            count_greater++;     
+         }
+
+         alignment.print();
+         if (o_info.is_reverse) query_sequence->ReverseAndComplement();
+    }
+
+    std::cout << "avg norm dist: " << total_norm_dist / tps.size() << std::endl;
+    std::cout << "avg norm score whole: " << total_norm_score_whole / tps.size() << std::endl;
+    std::cout << "avg norm score part: " << total_norm_score_part / tps.size() << std::endl;
+    std::cout << "count [0, 0.1): " << count_0001 << std::endl;
+    std::cout << "count [0.1, 0.2): " << count_0102 << std::endl;
+    std::cout << "count [0.2, 0.3): " << count_0203 << std::endl;
+    std::cout << "count [0.3, 0.4): " << count_0304 << std::endl;
+    std::cout << "count >= 0.4: " << count_greater << std::endl;
+
+
+    std::cout << "----true positives----" << std::endl; 
+
+}
 
 
 
@@ -587,6 +1451,25 @@ void Aligner::true_positives() {
     double total_norm_dist = 0;
     double total_norm_score_whole = 0;
     double total_norm_score_part = 0;
+    double total_hang_ratio = 0;
+    std::uint32_t count_0001 = 0;
+    std::uint32_t count_0102 = 0;
+    std::uint32_t count_0203 = 0;
+    std::uint32_t count_0304 = 0;
+    std::uint32_t count_greater = 0;
+    
+    std::uint32_t count0to100 = 0;
+    std::uint32_t count100to500 = 0;
+    std::uint32_t count500to2000 = 0;
+    std::uint32_t count_greater2000 = 0;
+
+    std::uint32_t count_h_0001 = 0;
+    std::uint32_t count_h_0102 = 0;
+    std::uint32_t count_h_0203 = 0;
+    std::uint32_t count_h_0304 = 0;
+    std::uint32_t count_h_greater = 0;
+
+    
 
     // true positives
     for (auto& o_info : tps) {
@@ -595,18 +1478,50 @@ void Aligner::true_positives() {
          auto& target_sequence = sequences[o_info.target_info.idx_in_sequences];
          
          if (o_info.is_reverse) query_sequence->ReverseAndComplement();
-         std::uint32_t query_string_len = query_sequence->inflated_len - o_info.q_clip_left - o_info.q_clip_right;
+    
+         std::uint32_t left_overhang = o_info.q_o_begin - o_info.q_clip_left;
+         std::uint32_t right_overhang = query_sequence->inflated_len - o_info.q_clip_right - o_info.q_o_end;
+         // double bad_left_ratio = (double) left_overhang / (query_sequence->inflated_len - o_info.q_clip_left - o_info.q_clip_right);
+         // double bad_right_ratio = (double) right_overhang / (query_sequence->inflated_len - o_info.q_clip_left - o_info.q_clip_right);
+         std::uint32_t larger = std::max(left_overhang, right_overhang);
+         if (larger < 100) {
+             count0to100++;   
+         } else if (larger < 500) {
+             count100to500++;   
+         } else if (larger < 2000) {
+            count500to2000++;
+         } else {
+            count_greater2000++;
+         } 
+
+         std::uint32_t query_string_len = query_sequence->inflated_len - o_info.q_clip_left - o_info.q_clip_right;         
+         double hang_ratio = (double) (left_overhang + right_overhang) / query_string_len;
+         total_hang_ratio += hang_ratio;
+         if (hang_ratio < 0.1) {
+             count_h_0001++;   
+         } else if (hang_ratio < 0.2) {
+             count_h_0102++;   
+         } else if (hang_ratio < 0.3) {
+            count_h_0203++;
+         } else if (hang_ratio < 0.4) {
+            count_h_0304++;
+         } else {
+            count_h_greater++;     
+         }
+
+
          std::uint32_t target_string_len = target_sequence->inflated_len - o_info.t_clip_left - o_info.t_clip_right;
          std::string target_string = target_sequence-> InflateData(o_info.t_clip_left, target_string_len);
          std::string query_string = query_sequence->InflateData(o_info.q_clip_left, query_string_len);
-
+         
          EdlibAlignResult result = edlibAlign(query_string.c_str(), query_string.size(),
              target_string.c_str(), target_string.size(),
              edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));     
 
-             total_norm_dist += (double) result.editDistance/query_string_len;         
+             double norm_dist = (double) result.editDistance/query_string_len; 
+             total_norm_dist += norm_dist;       
              total_norm_score_whole = (double) o_info.score / std::max(query_string_len, target_string_len);
-             total_norm_score_part = (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_start, o_info.q_o_end - o_info.q_o_start); 
+             total_norm_score_part = (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_begin, o_info.q_o_end - o_info.q_o_begin); 
 
              std::vector<std::string> overlapping_reads;
              overlapping_reads.push_back(std::move(query_string));
@@ -622,8 +1537,25 @@ void Aligner::true_positives() {
              std::cout << "t_clip_left: " << o_info.t_clip_left << " target_clip_right: " << o_info.t_clip_right << std::endl;
              std::uint32_t ovlp_len = overlap_len(o_info.query_info, o_info.target_info);
              std::cout << "overlap len: " << ovlp_len << std::endl;
+             std::cout << "norm dist: " << norm_dist << std::endl;
+             std::cout << "norm score whole: " << (double) o_info.score / std::max(query_string_len, target_string_len) << std::endl;
+             std::cout << "norm score part: " <<  (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_begin, o_info.q_o_end - o_info.q_o_begin) << std::endl; 
+             std::cout << "left overhang: " << left_overhang << std::endl;
+             std::cout << "right overhang: " << right_overhang << std::endl;
              //std::cout << "q_o_left: " << o_info.q_o_left << " query_o_right: " << o_info.q_o_right << std::endl;
              //std::cout << "t_o_left: " << o_info.t_o_left << " target_o_right: " << o_info.t_o_right << std::endl;
+             if (norm_dist < 0.1) {
+                 count_0001++;   
+             } else if (norm_dist < 0.2) {
+                 count_0102++;   
+             } else if (norm_dist < 0.3) {
+                count_0203++;
+             } else if (norm_dist < 0.4) {
+                count_0304++;
+             } else {
+                count_greater++;     
+             }
+
              alignment.print();
              if (o_info.is_reverse) query_sequence->ReverseAndComplement();
     }
@@ -631,6 +1563,25 @@ void Aligner::true_positives() {
     std::cout << "avg norm dist: " << total_norm_dist / tps.size() << std::endl;
     std::cout << "avg norm score whole: " << total_norm_score_whole / tps.size() << std::endl;
     std::cout << "avg norm score part: " << total_norm_score_part / tps.size() << std::endl;
+    std::cout << "avg hang ratio: " << total_hang_ratio / tps.size() << std::endl;
+    std::cout << "count [0, 0.1): " << count_0001 << std::endl;
+    std::cout << "count [0.1, 0.2): " << count_0102 << std::endl;
+    std::cout << "count [0.2, 0.3): " << count_0203 << std::endl;
+    std::cout << "count [0.3, 0.4): " << count_0304 << std::endl;
+    std::cout << "count >= 0.4: " << count_greater << std::endl;
+    
+    std::cout << "count h[0, 0.1): " << count_h_0001 << std::endl;
+    std::cout << "count h[0.1, 0.2): " << count_h_0102 << std::endl;
+    std::cout << "count h[0.2, 0.3): " << count_h_0203 << std::endl;
+    std::cout << "count h[0.3, 0.4): " << count_h_0304 << std::endl;
+    std::cout << "count h>= 0.4: " << count_h_greater << std::endl;
+
+
+    std::cout << "count [0, 100): " << count0to100 << std::endl;
+    std::cout << "count [100, 500): " << count100to500 << std::endl;
+    std::cout << "count [500, 2000): " << count500to2000 << std::endl;
+    std::cout << "count >= 2000: " << count_greater2000 << std::endl;
+
     std::cout << "----true positives----" << std::endl; 
 
 }
@@ -642,16 +1593,67 @@ void Aligner::false_positives() {
     double total_norm_dist = 0;
     double total_norm_score_whole = 0;
     double total_norm_score_part = 0;
+    double total_hang_ratio = 0;
+    std::uint32_t count_h_0001 = 0;
+    std::uint32_t count_h_0102 = 0;
+    std::uint32_t count_h_0203 = 0;
+    std::uint32_t count_h_0304 = 0;
+    std::uint32_t count_h_greater = 0;
+
+
+    std::uint32_t count_0001 = 0;
+    std::uint32_t count_0102 = 0;
+    std::uint32_t count_0203 = 0;
+    std::uint32_t count_0304 = 0;
+    std::uint32_t count_greater = 0;
+
+
+    std::uint32_t count0to100 = 0;
+    std::uint32_t count100to500 = 0;
+    std::uint32_t count500to2000 = 0;
+    std::uint32_t count_greater2000 = 0;
+
 
     // true positives
     for (auto& o_info : fps) {
          
          auto& query_sequence = sequences[o_info.query_info.idx_in_sequences];
          auto& target_sequence = sequences[o_info.target_info.idx_in_sequences];
-         
+        
+        
          if (o_info.is_reverse) query_sequence->ReverseAndComplement();
-         
+    
+         std::uint32_t left_overhang = o_info.q_o_begin - o_info.q_clip_left;
+         std::uint32_t right_overhang = query_sequence->inflated_len - o_info.q_clip_right - o_info.q_o_end;
+         std::uint32_t larger = std::max(left_overhang, right_overhang);    
+         if (larger < 100) {
+             count0to100++;   
+         } else if (larger < 500) {
+             count100to500++;   
+         } else if (larger < 2000) {
+            count500to2000++;
+         } else {
+            count_greater2000++;
+         } 
+
+
+
          std::uint32_t query_string_len = query_sequence->inflated_len - o_info.q_clip_left - o_info.q_clip_right;
+         double hang_ratio = (double) (left_overhang + right_overhang) / query_string_len;
+         total_hang_ratio += hang_ratio;
+         if (hang_ratio < 0.1) {
+             count_h_0001++;   
+         } else if (hang_ratio < 0.2) {
+             count_h_0102++;   
+         } else if (hang_ratio < 0.3) {
+            count_h_0203++;
+         } else if (hang_ratio < 0.4) {
+            count_h_0304++;
+         } else {
+            count_h_greater++;     
+         }
+
+
          std::uint32_t target_string_len = target_sequence->inflated_len - o_info.t_clip_left - o_info.t_clip_right;
          std::string target_string = target_sequence-> InflateData(o_info.t_clip_left, target_string_len);
          std::string query_string = query_sequence->InflateData(o_info.q_clip_left, query_string_len);
@@ -659,9 +1661,11 @@ void Aligner::false_positives() {
              target_string.c_str(), target_string.size(),
              edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
 
-             total_norm_dist += (double) result.editDistance/query_string_len;         
+
+             double norm_dist = (double) result.editDistance/query_string_len;  
+             total_norm_dist += norm_dist;         
              total_norm_score_whole = (double) o_info.score / std::max(query_string_len, target_string_len);
-             total_norm_score_part = (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_start, o_info.q_o_end - o_info.q_o_start); 
+             total_norm_score_part = (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_begin, o_info.q_o_end - o_info.q_o_begin); 
 
 
              std::vector<std::string> overlapping_reads;
@@ -678,7 +1682,23 @@ void Aligner::false_positives() {
              std::cout << "t_clip_left: " << o_info.t_clip_left << " target_clip_right: " << o_info.t_clip_right << std::endl;
              std::uint32_t ovlp_len = overlap_len(o_info.query_info, o_info.target_info);
              std::cout << "overlap len: " << ovlp_len << std::endl;
+             std::cout << "norm dist: " << norm_dist << std::endl;
+             std::cout << "norm score whole: " << (double) o_info.score / std::max(query_string_len, target_string_len) << std::endl;
+             std::cout << "norm score part: " <<  (double) o_info.score / std::max(o_info.t_o_end - o_info.t_o_begin, o_info.q_o_end - o_info.q_o_begin) << std::endl; 
+             std::cout << "left overhang: " << left_overhang << std::endl;
+             std::cout << "right overhang: " << right_overhang << std::endl;
 
+             if (norm_dist < 0.1) {
+                 count_0001++;   
+             } else if (norm_dist < 0.2) {
+                 count_0102++;   
+             } else if (norm_dist < 0.3) {
+                count_0203++;
+             } else if (norm_dist < 0.4) {
+                count_0304++;
+             } else {
+                count_greater++;     
+             }
 
              //std::cout << "q_o_left: " << o_info.q_o_left << " query_o_right: " << o_info.q_o_right << std::endl;
              //std::cout << "t_o_left: " << o_info.t_o_left << " target_o_right: " << o_info.t_o_right << std::endl;
@@ -689,6 +1709,24 @@ void Aligner::false_positives() {
     std::cout << "avg norm dist: " << total_norm_dist / fps.size() << std::endl;
     std::cout << "avg norm score whole: " << total_norm_score_whole / fps.size() << std::endl;
     std::cout << "avg norm score part: " << total_norm_score_part / fps.size() << std::endl;
+    std::cout << "avg hang ratio: " << total_hang_ratio / fps.size() << std::endl;
+    std::cout << "count [0, 0.1): " << count_0001 << std::endl;
+    std::cout << "count [0.1, 0.2): " << count_0102 << std::endl;
+    std::cout << "count [0.2, 0.3): " << count_0203 << std::endl;
+    std::cout << "count [0.3, 0.4): " << count_0304 << std::endl;
+    std::cout << "count >= 0.4: " << count_greater << std::endl;
+    std::cout << "count h[0, 0.1): " << count_h_0001 << std::endl;
+    std::cout << "count h[0.1, 0.2): " << count_h_0102 << std::endl;
+    std::cout << "count h[0.2, 0.3): " << count_h_0203 << std::endl;
+    std::cout << "count h[0.3, 0.4): " << count_h_0304 << std::endl;
+    std::cout << "count h>= 0.4: " << count_h_greater << std::endl;
+
+
+
+    std::cout << "count [0, 100): " << count0to100 << std::endl;
+    std::cout << "count [100, 500): " << count100to500 << std::endl;
+    std::cout << "count [500, 2000): " << count500to2000 << std::endl;
+    std::cout << "count >= 2000: " << count_greater2000 << std::endl;
     std::cout << "----false positives----" << std::endl; 
 
 }
@@ -697,7 +1735,7 @@ void Aligner::false_positives() {
 
 Aligner::Aligner(const char** sequences_paths, std::shared_ptr<thread_pool::ThreadPool>& pool, std::uint8_t kmer_len, 
     std::uint8_t window_len, double freq) 
-    : pool(pool), minimizer_engine(pool, kmer_len, window_len, 500, 4, 1500, 500) {
+    : pool(pool), minimizer_engine(pool, kmer_len, window_len, 500, 4, 100, 10000) {
     
 	
     //srand (time(NULL));

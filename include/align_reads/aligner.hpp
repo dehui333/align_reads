@@ -80,9 +80,17 @@ public:
 
     void true_positives();
 
+    void true_positives_align_part();
+
     void false_positives();
 
+    void false_positives_align_part();
+
     void false_negatives();
+
+    void RAM_overlaps_true_reads();
+
+    void RAM_overlaps_simulated_reads();
 
     void run();
     

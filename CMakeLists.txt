@@ -62,8 +62,11 @@ endif()
 #message(STATUS "Python library dir: ${pylibdir}")
 message(STATUS "Numpy include dir: ${numpyinc}")
 
+# includes
 include_directories(include edlib/include ${numpyinc} ${using_pyinc})
-add_library(align_reads STATIC src/aligner.cpp edlib/src/edlib.cpp)
+
+# source
+add_library(align_reads STATIC src/aligner.cpp edlib/src/edlib.cpp src/Inputs.cpp)
 
 
 # python library
@@ -94,6 +97,7 @@ enable_testing()
 add_executable(
   tests 
   tests/tests.cpp
+  tests/Inputs_tests.cpp
 )
 target_link_libraries(
   tests

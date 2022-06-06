@@ -12,10 +12,10 @@ libalign_reads.a: build/libalign_reads.a venv bioparser/CMakeLists.txt
 bioparser/CMakeLists.txt: 
 	git submodule init && git submodule update
 
-build/libalign_reads.a: build/Makefile src/aligner.cpp
+build/libalign_reads.a: build/Makefile src/aligner.cpp tests/Inputs_tests.cpp
 	cmake --build build/
 
-build/Makefile: bioparser/CMakeLists.txt
+build/Makefile: bioparser/CMakeLists.txt CMakeLists.txt
 	. align_reads_venv/bin/activate; cmake -S . -B build/
 
 

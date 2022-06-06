@@ -23,7 +23,7 @@ TEST(TrivialTests, BasicAssertions) {
     // Expect equality.
     EXPECT_EQ(7 * 6, 42);
 }
-
+/*
 TEST(BasicTests, Parse_Fasta) {
     auto p = bioparser::Parser<biosoup::NucleicAcid>::Create<bioparser::FastaParser>(reads_fasta_path);
     auto s = p->Parse(-1);
@@ -100,3 +100,4 @@ TEST(ComponentTests, all_inputs) {
 }
 
 
+*/

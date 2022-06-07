@@ -1,3 +1,4 @@
 build/*
 align_reads_venv/
 ignored
+.vscode/

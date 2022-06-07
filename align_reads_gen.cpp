@@ -30,7 +30,7 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
         }
 	
 	    std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(THREADS);         
-        gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.001);           
+        gen = new align_reads::Aligner(reads_path, pool, 15, 5, 0.005);           
     }
     Py_RETURN_NONE;    
 }

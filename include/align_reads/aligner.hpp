@@ -74,7 +74,7 @@ public:
      
     void find_true_overlaps();
 
-    void find_RAM_overlaps();
+    void find_RAM_overlaps(bool filter);
 
     void within_each();
 
@@ -93,6 +93,12 @@ public:
     void RAM_overlaps_simulated_reads();
 
     void run();
+
+    void filtered_trues();
+
+    void filter_overlaps(std::vector<biosoup::Overlap>& overlaps);
+
+    void find_RAM_overlaps_real(bool filter);
     
 };
 

@@ -66,7 +66,7 @@ message(STATUS "Numpy include dir: ${numpyinc}")
 include_directories(include edlib/include ${numpyinc} ${using_pyinc})
 
 # source
-add_library(align_reads STATIC src/aligner.cpp edlib/src/edlib.cpp src/Inputs.cpp)
+add_library(align_reads STATIC edlib/src/edlib.cpp src/Inputs.cpp src/Overlapper.cpp src/Generator.cpp)
 
 
 # python library
@@ -96,8 +96,9 @@ enable_testing()
 
 add_executable(
   tests 
-  tests/tests.cpp
   tests/Inputs_tests.cpp
+  tests/Overlapper_tests.cpp
+  tests/Generator_tests.cpp
 )
 target_link_libraries(
   tests

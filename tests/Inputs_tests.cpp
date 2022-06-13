@@ -4,7 +4,7 @@
 
 #include "../src/Inputs.cpp"
 
-
+std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 const char* fastq_path = "../test_data/reads.fastq";
 const char* fasta_path = "../test_data/reads.fasta";
 
@@ -156,7 +156,7 @@ TEST(BasicTests, update_index) {
 TEST(BasicTests, class_Inputs) {
     std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(10);
     std::vector<std::string> paths = {fastq_path, fastq_path};
-    align_reads::Inputs inputs; 
+    align_reads::Inputs inputs(2); 
     inputs.append_to_group(0, paths, pool);
     paths.push_back(fastq_path);
     inputs.append_to_group(1, paths, pool);

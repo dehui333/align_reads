@@ -17,6 +17,9 @@ namespace align_reads
     class Inputs
     {
         public:
+            // split into this number of groups
+            Inputs(std::uint8_t num_groups);
+
             // add sequences from paths to a group
             void append_to_group(std::uint32_t group_id, std::vector<std::string>& paths,
                 std::shared_ptr<thread_pool::ThreadPool> &pool);

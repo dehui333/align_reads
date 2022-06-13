@@ -3,6 +3,7 @@
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "biosoup/nucleic_acid.hpp"
+#include "thread_pool/thread_pool.hpp"
 
 #include "align_reads/Inputs.hpp"
 
@@ -152,15 +153,14 @@ namespace align_reads
         }
     }
 
+    Inputs::Inputs(std::uint8_t num_groups) {
+        groups_of_sequences.resize(num_groups);
+        indices_of_groups.resize(num_groups);
+    }
+
     void Inputs::append_to_group(std::uint32_t group_id, std::vector<std::string> &paths,
                                  std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
-        if (groups_of_sequences.size() < group_id + 1)
-        {
-            groups_of_sequences.resize(group_id + 1);
-            indices_of_groups.resize(group_id + 1);
-        }
-
         read_sequences(groups_of_sequences[group_id], paths, groups_of_sequences[group_id].size(), pool);
     }
 

@@ -121,3 +121,49 @@ TEST(BasicTests, read_sequences) {
     EXPECT_THROW({align_reads::read_sequences(sequences, paths, 0, pool);}, std::invalid_argument);
 
 }
+
+TEST(BasicTests, update_index) {
+    std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(10);
+    std::vector<std::unique_ptr<biosoup::NucleicAcid>> sequences;
+    std::vector<std::string> paths {fastq_path, fastq_path};
+    align_reads::read_sequences(sequences, paths, 0, pool);
+    // indices are not continous?
+    std::uint32_t id = 0;
+    bool continuous = true;
+    for (auto& sequence : sequences) {
+        if (sequence->id != id++) {
+            continuous = false;
+            break;
+        }
+    }
+    EXPECT_FALSE(continuous);
+    EXPECT_EQ(sequences.size(), 3165 * 2);
+    // index initialized correctly?
+    std::vector<std::uint32_t> id_to_pos_index;
+    align_reads::update_index(id_to_pos_index, sequences);
+    for (std::uint32_t i = 0; i < id_to_pos_index.size(); i++) {
+        EXPECT_EQ(sequences[id_to_pos_index[i]]->id, i); 
+    }
+    // index updated correctly?
+    align_reads::read_sequences(sequences, paths, sequences.size(), pool);
+    EXPECT_EQ(sequences.size(), 3165 * 4);
+    align_reads::update_index(id_to_pos_index, sequences);
+    for (std::uint32_t i = 0; i < id_to_pos_index.size(); i++) {
+        EXPECT_EQ(sequences[id_to_pos_index[i]]->id, i); 
+    }
+}
+
+TEST(BasicTests, class_Inputs) {
+    std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(10);
+    std::vector<std::string> paths = {fastq_path, fastq_path};
+    align_reads::Inputs inputs; 
+    inputs.append_to_group(0, paths, pool);
+    paths.push_back(fastq_path);
+    inputs.append_to_group(1, paths, pool);
+    EXPECT_EQ(inputs.get_group(0).size(), 3165 * 2);
+    EXPECT_EQ(inputs.get_group(1).size(), 3165 * 3);
+    inputs.index_group(0);
+    inputs.index_group(1);
+    EXPECT_EQ(inputs.get_id_in_group(0, 6000)->id, 6000);
+    EXPECT_EQ(inputs.get_id_in_group(1, 9000)->id, 9000);
+}

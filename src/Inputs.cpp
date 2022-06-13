@@ -78,11 +78,28 @@ namespace align_reads
         }
         return id_to_pos_index;
     }
+    /*
+     * The inputs sequences should be already indexed in the front portion up to index.size() items(possibly 0).
+     * New unindexed items should have ids continuing from index.size().
+     * The index is updated to index the unindexed items.
+     *
+     * --> possibility of not using index but just sort the sequences by id?
+     * --> or I may want them to be sorted by some other order
+     */
+    void update_index(std::vector<std::uint32_t> &id_to_pos_index, std::vector<std::unique_ptr<biosoup::NucleicAcid>> &sequences)
+    {
+        std::uint32_t pos_index = id_to_pos_index.size();
+        id_to_pos_index.resize(sequences.size());
+        for (; pos_index < id_to_pos_index.size(); pos_index++)
+        {
+            id_to_pos_index[sequences[pos_index]->id] = pos_index;
+        }
+    }
 
     /*
      * Read a batch of sequences into a destination vector, possibly from multiple paths (in parallel).
-     * The sequences will occupy contiguous ids starting from 'start_id' but may be out of order
-     * if a pool is used.
+     * The new items will occupy contiguous ids starting from 'start_id' and appended to
+     * the end of the original vector but may be out of order(not ascending id) amongst themselves if a pool is used.
      * Only 1 instance of this function should run at a time.
      *
      */
@@ -111,7 +128,7 @@ namespace align_reads
                 auto sequences = read_fasta_or_fastq(path);
                 item it{sequences};
                 return it;
-            };           
+            };
             std::vector<std::future<item>> futures;
             for (auto &path : paths)
             {
@@ -133,6 +150,35 @@ namespace align_reads
                 dest.insert(dest.end(), std::make_move_iterator(part.begin()), std::make_move_iterator(part.end()));
             }
         }
+    }
+
+    void Inputs::append_to_group(std::uint32_t group_id, std::vector<std::string> &paths,
+                                 std::shared_ptr<thread_pool::ThreadPool> &pool)
+    {
+        if (groups_of_sequences.size() < group_id + 1)
+        {
+            groups_of_sequences.resize(group_id + 1);
+            indices_of_groups.resize(group_id + 1);
+        }
+
+        read_sequences(groups_of_sequences[group_id], paths, groups_of_sequences[group_id].size(), pool);
+    }
+
+    std::vector<std::unique_ptr<biosoup::NucleicAcid>> &Inputs::get_group(std::uint32_t group_id)
+    {
+        return groups_of_sequences[group_id];
+    }
+
+    void Inputs::index_group(std::uint32_t group_id)
+    {
+        update_index(indices_of_groups[group_id], groups_of_sequences[group_id]);
+    }
+
+    std::unique_ptr<biosoup::NucleicAcid> &Inputs::get_id_in_group(std::uint32_t group_id,
+                                                                   std::uint32_t sequence_id)
+    {
+        auto pos_index = indices_of_groups[group_id][sequence_id];
+        return groups_of_sequences[group_id][pos_index];
     }
 
 } // namespace align_reads

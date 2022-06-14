@@ -26,11 +26,12 @@
 #define RANDOM_SEED 422
 #define OVLP_THRES 0
 #define TARGET_NUM 1000
-#define MINHASH_BOOL false
+#define MINHASH_BOOL true
 
 #define TYPE_PREFIX 0
 #define TYPE_SUFFIX 1
 #define TYPE_OTHERS 2
+
 
 std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
@@ -659,7 +660,7 @@ namespace align_reads
         // RAM_overlaps_simulated_reads();
         find_true_overlaps();
         // within_each();
-        //find_RAM_overlaps(false);
+        find_RAM_overlaps(true);
         //compare_break();
         //find_RAM_overlaps(true);
         //filtered_trues();

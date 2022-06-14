@@ -152,6 +152,15 @@ namespace align_reads
     std::set<id_pair, comp2> accepts;
     std::set<id_pair, comp2> rejects;
 
+    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> true_has;   
+    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> true_lack;
+    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> found_has;
+    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> found_lack;
+
+    
+    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> found_lack_false;
+
+    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> found_has_false;
     std::uint32_t num_true_prefix_o = 0;
     std::uint32_t num_true_suffix_o = 0;
 
@@ -478,7 +487,7 @@ namespace align_reads
 
             bool declared_bad = false;
 
-            if (norm_score < 0.08)
+            if (false /*norm_score < 0.08*/)
             {
                 declared_bad = true;
             }
@@ -498,7 +507,7 @@ namespace align_reads
                         left_ok = false;
                         EdlibAlignResult result = edlibAlign(query_string.c_str() + 100, 100,
                                                              target_string.c_str(), 300,
-                                                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+                                                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
                         if ((double)result.editDistance / 100 < dist_thres)
                             left_ok = true;
                         edlibFreeAlignResult(result);
@@ -509,7 +518,7 @@ namespace align_reads
                         right_ok = false;
                         EdlibAlignResult result = edlibAlign(query_string.c_str() + query_string.size() - 200, 100,
                                                              target_string.c_str() + target_string.size() - 300, 300,
-                                                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
+                                                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
                         if ((double)result.editDistance / 100 < dist_thres)
                             right_ok = true;
                         edlibFreeAlignResult(result);
@@ -573,7 +582,76 @@ namespace align_reads
         std::cout << "recall of prefix-suffix: " << (double) (num_prefix + num_suffix) / (num_true_prefix_o + num_true_suffix_o) << std::endl; 
     }
 
+    void Aligner::compare_break() {
+        std::cout << "true lack: " << std::endl;
+        std::cout << "-------------------------" << std::endl;
+        for (auto& item: true_lack) {
+            auto info = EXTRACT(sequences[item.first]->name);
+            auto len = info.end - info.start;
+            std::cout << "num p: " << item.second.first << "num s: " << item.second.second << " len: " << len << std::endl;
+        }
 
+        std::cout << "------------------------" << std::endl;
+        std::cout << "extra lack in found: " << std::endl;
+        std::cout << "--------------------------" << std::endl;
+
+        std::uint32_t num_500 = 0;
+        std::uint32_t num_1000 = 0;
+        std::uint32_t num_2000 = 0;
+        std::uint32_t num_more = 0;
+        for (auto& item : found_lack) {
+            if (true_lack.find(item.first) != true_lack.end()) {
+                continue;
+            }
+            std::cout << "id " << item.first << std::endl;
+            auto info = EXTRACT(sequences[item.first]->name);
+            auto len = info.end - info.start;
+            if (len <= 500) {
+                std::cout << "cat 500" << std::endl;
+                num_500++;
+                
+            } else if (len <= 1000) {
+                std::cout << "cat 1000" << std::endl;
+                num_1000++;
+            } else if (len <= 2000) {
+                std::cout << "cat 2000" << std::endl;
+                num_2000++;
+            } else {
+                std::cout << "cat more" << std::endl;
+                num_more++;
+            }
+            std::cout << sequences[item.first]->name << std::endl;
+            std::cout << "num p: " << item.second.first << " num s: " << item.second.second << " len: " << len << std::endl;
+            auto& item_before = true_has[item.first];
+            std::cout << "before: num p: " << item_before.first << " num s: " << item_before.second  << std::endl;
+            auto& item_false = found_lack_false[item.first];
+            std::cout << "false: num p: " << item_false.first << " num s: " << item_false.second  << std::endl;
+ 
+
+        }
+
+
+        std::cout << "num (0, 500]: " << num_500 << std::endl; 
+        std::cout << "num (500, 1000]: " << num_1000 << std::endl; 
+        std::cout << "num (1000, 2000]: " << num_2000 << std::endl; 
+        std::cout << "num (2000, ?]: " << num_more << std::endl; 
+        std::cout << "-------------FOUND HAS --------------" << std::endl;
+        for (auto& item : found_has) {
+            std::cout << "has id " << item.first << std::endl;
+            auto info = EXTRACT(sequences[item.first]->name);
+            auto len = info.end - info.start;
+            std::cout << sequences[item.first]->name << std::endl;
+            std::cout << "num p: " << item.second.first << " num s: " << item.second.second << " len: " << len << std::endl;
+            auto& item_before = true_has[item.first];
+            std::cout << "before: num p: " << item_before.first << " num s: " << item_before.second  << std::endl;
+            auto& item_false = found_has_false[item.first];
+            std::cout << "false: num p: " << item_false.first << " num s: " << item_false.second  << std::endl;
+ 
+
+        }
+
+
+    }
 
 
     void Aligner::run()
@@ -581,8 +659,9 @@ namespace align_reads
         // RAM_overlaps_simulated_reads();
         find_true_overlaps();
         // within_each();
-        // find_RAM_overlaps(false);
-        find_RAM_overlaps(true);
+        //find_RAM_overlaps(false);
+        //compare_break();
+        //find_RAM_overlaps(true);
         //filtered_trues();
         //account_prefix_suffix();
         // find_RAM_overlaps_real(true);
@@ -594,11 +673,57 @@ namespace align_reads
     }
 
     void Aligner::find_true_overlaps()
-    {
+    {   
+        std::uint32_t min_num_prefix = 10000;
+        std::uint32_t min_num_suffix = 10000;
+        std::uint16_t num_lacking_any = 0;
+        std::uint64_t total_len_lacking = 0;
+        std::uint32_t longest_len_lacking = 0;
+
+        std::uint16_t num_200 = 0;
+        std::uint16_t num_500 = 0;
+        std::uint16_t num_1000 = 0;
+        std::uint16_t num_2000 = 0;
+        std::uint16_t num_longer = 0;
+
+        std::uint16_t num_o_200 = 0;
+        std::uint16_t num_o_500 = 0;
+        std::uint16_t num_o_1000 = 0;
+        std::uint16_t num_o_2000 = 0;
+        std::uint16_t num_o_longer = 0;
+
+        std::uint32_t total_o_len_200 = 0;
+        std::uint32_t total_o_len_500 = 0;
+        std::uint32_t total_o_len_1000 = 0;
+        std::uint32_t total_o_len_2000 = 0;
+        std::uint32_t total_o_len_longer = 0;
+
         for (auto i = 0; i < TARGET_NUM; i++)
         {
+            std::uint32_t num_prefix = 0;
+            std::uint32_t num_suffix = 0;
 
             auto target_info = EXTRACT(sequences[i]->name);
+            auto s_len = target_info.end - target_info.start;
+            
+            //
+            /*if (i == 432 || i == 538) {
+                std::cout << "-----------------" << std::endl;
+                std::cout << sequences[i]->name << std::endl;
+            }*/
+            if (s_len <= 200) {
+                num_200++;
+            } else if (s_len <= 500) {
+                num_500++;
+            } else if (s_len <= 1000) {
+                num_1000++;
+            } else if (s_len <= 2000) {
+                num_2000++;
+            } else {
+                num_longer++;
+            }
+
+
             for (auto j = 0; j < sequences.size(); j++)
             {
                 if (j == i)
@@ -618,14 +743,105 @@ namespace align_reads
                     if (o_type == TYPE_PREFIX)
                     {
                         num_true_prefix_o++;
+                        num_prefix++;
+                            
+                        //
+                        /*if (i == 432 || i == 538) {
+                            std::cout << "prefix ovlp len " << len << std::endl;
+                            std::cout << query_info.name << std::endl;
+                        }*/
+                        if (s_len <= 200) {
+                            num_o_200++;
+                            total_o_len_200 += len;
+
+                        } else if (s_len <= 500) {
+                            num_o_500++;
+                            total_o_len_500 += len;
+
+                        } else if (s_len <= 1000) {
+                            num_o_1000++;
+                            total_o_len_1000 += len;
+
+                        } else if (s_len <= 2000) {
+                            num_o_2000++;
+                            total_o_len_2000 += len;    
+                        } else {
+                            num_o_longer++;
+                            total_o_len_longer += len;    
+                        }
                     }
                     else if (o_type == TYPE_SUFFIX)
                     {
                         num_true_suffix_o++;
+                        num_suffix++;
+
+                        if (s_len <= 200) {
+                            num_o_200++;
+                            total_o_len_200 += len;
+
+                        } else if (s_len <= 500) {
+                            num_o_500++;
+                            total_o_len_500 += len;
+
+                        } else if (s_len <= 1000) {
+                            num_o_1000++;
+                            total_o_len_1000 += len;
+
+                        } else if (s_len <= 2000) {
+                            num_o_2000++;
+                            total_o_len_2000 += len;    
+                        } else {
+                            num_o_longer++;
+                            total_o_len_longer += len;    
+                        }
+                        /*if (i == 432 || i == 538) {
+                            //
+                            std::cout << "suffix ovlp len " << len << std::endl;
+                            std::cout << query_info.name << std::endl;
+                        }*/
+
+
                     }
                 }
             }
+            if (num_prefix < min_num_prefix) min_num_prefix = num_prefix;
+            if (num_suffix < min_num_suffix) min_num_suffix = num_suffix;
+            if (num_prefix == 0 || num_suffix == 0) {
+                num_lacking_any++;
+                std::uint32_t len = (target_info.end - target_info.start);
+                total_len_lacking += len;
+                if (len > longest_len_lacking) longest_len_lacking = len;
+                true_lack.emplace(i, std::make_pair(num_prefix, num_suffix));
+            } else {
+
+                true_has.emplace(i, std::make_pair(num_prefix, num_suffix));
+            }
         }
+        std::cout << "min num prefix: " << min_num_prefix << std::endl;
+        std::cout << "min num suffix: " << min_num_suffix << std::endl;
+        std::cout << "avg num prefix: " << (double) num_true_prefix_o / TARGET_NUM << std::endl;
+        std::cout << "avg num suffix: " << (double) num_true_suffix_o / TARGET_NUM << std::endl;
+        std::cout << "num lacking any in true: "  << num_lacking_any << std::endl;
+        std::cout << "avg len lacking in true: " << (double) total_len_lacking / num_lacking_any << std::endl;
+        std::cout << "longest len lacking: " << longest_len_lacking << std::endl;
+        
+        std::cout << "num segment (0, 200]: " << num_200 << std::endl;
+        std::cout << "num segment (200, 500]: " << num_500 << std::endl;
+        std::cout << "num segment (500, 1000]: " << num_1000 << std::endl;
+        std::cout << "num segment (1000, 2000]: " << num_2000 << std::endl;
+        std::cout << "num segment (2000, ?]: " << num_longer << std::endl;
+
+        std::cout << "avg num prefix/suffix for (0, 200]: " << (double) num_o_200/num_200  << std::endl;
+        std::cout << "avg num prefix/suffix for (200, 500]: " << (double) num_o_500/num_500 << std::endl;
+        std::cout << "avg num prefix/suffix for (500, 1000]: " << (double) num_o_1000/num_1000 << std::endl;
+        std::cout << "avg num prefix/suffix for (1000, 2000]: " << (double) num_o_2000/num_2000 << std::endl;
+        std::cout << "avg num prefix/suffix for (2000, ?]: " << (double) num_o_longer/num_longer << std::endl;
+    
+        std::cout << "avg prefix/suffix overlap len for (0, 200]: " << (double) total_o_len_200 / num_o_200 << std::endl;
+        std::cout << "avg prefix/suffix overlap len for (200, 500]: " << (double) total_o_len_500 / num_o_500 << std::endl;
+        std::cout << "avg prefix/suffix overlap len for (500, 1000]: " << (double) total_o_len_1000 / num_o_1000 << std::endl;
+        std::cout << "avg prefix/suffix overlap len for (1000, 2000]: " << (double) total_o_len_2000 / num_o_2000 << std::endl;
+        std::cout << "avg prefix/suffix overlap len for (2000, ?]: " << (double) total_o_len_longer / num_o_longer << std::endl;
     }
 
     void Aligner::within_each()
@@ -1525,6 +1741,10 @@ namespace align_reads
         std::uint32_t total_num_prefix = 0;
         std::uint32_t total_num_suffix = 0;
 
+        std::uint32_t total_num_false_prefix = 0;
+        
+        std::uint32_t total_num_false_suffix = 0;
+
         if (filter)
         {
             std::cout << "filter" << std::endl;
@@ -1537,7 +1757,8 @@ namespace align_reads
         {
             std::uint32_t num_prefix = 0;
             std::uint32_t num_suffix = 0;
-
+            std::uint32_t num_false_prefix = 0;
+            std::uint32_t num_false_suffix = 0;
             auto &target = sequences[i];
             std::uint32_t target_id = target->id;
             auto target_info = EXTRACT(target->name);
@@ -1621,24 +1842,49 @@ namespace align_reads
                     num_suffix++;
                 }*/
 
-                if (protrude_left > 0) {
-                    if (protrude_right < 0) num_prefix++;
-                } else if (protrude_right > 0) {
-                    num_suffix++;
-                }
-
+                
                 if (overlap_len(query_info, target_info) > OVLP_THRES)
                 {
                     tps.insert(o_info);
+                    auto o_type = overlap_type(target_info, query_info, target_info.forward);
+                    if (o_type == TYPE_PREFIX)
+                    {
+                   
+                        num_prefix++;
+                    }
+                    else if (o_type == TYPE_SUFFIX)
+                    {
+                       
+                        num_suffix++;
+                    }
+
                 }
                 else
                 {
                     fps.insert(o_info);
+                    if (protrude_left > 0) {
+                         if (protrude_right < 0) {
+                             total_num_false_prefix++;
+                             num_false_prefix++;
+                         }
+                    } else if (protrude_right > 0) {
+                         total_num_false_suffix++;
+                         num_false_suffix++;
+                    }
+
                 }
             }
             if (num_prefix == 0 || num_suffix == 0)
             {
                 num_lacking++;
+                found_lack.emplace(i, std::make_pair(num_prefix, num_suffix));
+                found_lack_false.emplace(i, std::make_pair(num_false_prefix, num_false_suffix));
+                 
+            } else {
+                
+                found_has.emplace(i, std::make_pair(num_prefix, num_suffix)); 
+                
+                found_has_false.emplace(i, std::make_pair(num_false_prefix, num_false_suffix));
             }
             total_num_prefix += num_prefix;
             total_num_suffix += num_suffix;
@@ -1653,6 +1899,10 @@ namespace align_reads
         }
         std::cout << "num prefix found: " << total_num_prefix << std::endl;
         std::cout << "num suffix found: " << total_num_suffix << std::endl;
+        std::cout << "avg num recovered prefix: " << (double) total_num_prefix / TARGET_NUM << std::endl;
+        std::cout << "avg num recovered suffix: " << (double) total_num_suffix / TARGET_NUM << std::endl;
+        std::cout << "avg num false prefix: " << (double) total_num_false_prefix / TARGET_NUM << std::endl;
+        std::cout << "avg num false suffix: " << (double) total_num_false_suffix / TARGET_NUM << std::endl;
         std::cout << "num lacking: " << num_lacking << std::endl;
         std::cout << "precision: " << ((double)tps.size() / (tps.size() + fps.size())) << std::endl;
         std::cout << "recall: " << ((double)tps.size() / all_true_overlaps.size()) << std::endl;
@@ -2517,10 +2767,10 @@ namespace align_reads
             return s1->inflated_len > s2->inflated_len;
         };
 
-        id_to_pos_index.resize(sequences.size());
 
         std::random_shuffle(sequences.begin(), sequences.end());
 
+        id_to_pos_index.resize(sequences.size());
         std::uint32_t pos_index = 0;
 
         for (auto &s : sequences)

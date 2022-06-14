@@ -99,6 +99,8 @@ public:
     void filter_overlaps(std::vector<biosoup::Overlap>& overlaps);
 
     void find_RAM_overlaps_real(bool filter);
+
+    void compare_break();
     
 };
 

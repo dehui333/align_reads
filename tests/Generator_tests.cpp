@@ -5,10 +5,9 @@
 
 extern const char* fastq_path;
 extern const char* fasta_path;
-
-TEST(BasicTests, class_Generator) {
+extern std::shared_ptr<thread_pool::ThreadPool> pool;
+TEST(Generator, class_Generator) {
     std::vector<std::string> paths = {fastq_path};
-    std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(10);
     align_reads::Generator gen {paths, pool};
     EXPECT_FALSE(gen.has_haplotypes);
     EXPECT_EQ(gen.inputs.get_group(0).size(), 3165);

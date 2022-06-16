@@ -8,6 +8,10 @@
 #define HAP0_INDEX 1
 #define HAP1_INDEX 2
 
+/*
+ * The 'Main' component that interacts with other components. 
+ */
+
 namespace align_reads
 {
     class Generator

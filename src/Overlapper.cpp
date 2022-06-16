@@ -13,7 +13,7 @@
 namespace align_reads
 {
     Overlapper::Overlapper(std::uint8_t num_groups,
-                                 std::shared_ptr<thread_pool::ThreadPool> &pool)
+                           std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
         indices.reserve(num_groups);
         for (auto i = 0; i < num_groups; i++)
@@ -23,14 +23,14 @@ namespace align_reads
         }
     }
     std::vector<biosoup::Overlap> Overlapper::find_overlaps(std::unique_ptr<biosoup::NucleicAcid> &sequence,
-                                                               std::uint32_t index_id)
+                                                            std::uint32_t index_id)
     {
         std::vector<biosoup::Overlap> overlaps = indices[index_id].Map(sequence, true, false, MINHASH_BOOL);
         return overlaps;
     }
 
     void Overlapper::index_sequences(std::vector<std::unique_ptr<biosoup::NucleicAcid>> &sequences,
-                                        std::uint32_t index_id)
+                                     std::uint32_t index_id)
     {
         indices[index_id].Minimize(sequences.begin(), sequences.end(), MINHASH_BOOL);
     }

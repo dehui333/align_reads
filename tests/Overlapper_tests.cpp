@@ -7,9 +7,9 @@
 
 extern const char* fastq_path;
 extern const char* fasta_path;
+extern std::shared_ptr<thread_pool::ThreadPool> pool;
 
-TEST(BasicTests, class_Overlapper) {
-    std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(10);
+TEST(Overlapper, class_Overlapper) {
     std::vector<std::string> paths = {fastq_path, fastq_path};
     align_reads::Inputs inputs(2); 
     inputs.append_to_group(0, paths, pool);

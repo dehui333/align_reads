@@ -14,7 +14,7 @@ namespace align_reads
     {
         std::uint32_t aligned_len_on_target = result.endLocations[0] + 1 - result.startLocations[0];
         this->start_on_target = t_start + result.startLocations[0];
-        this->end_on_target = t_start + result.endLocations[0] + 1;
+        this->align_len_on_target = t_start + result.endLocations[0] + 1;
         this->aligned_chars.reserve(aligned_len_on_target);
         this->ins_segments.resize(aligned_len_on_target + 1);
         std::uint32_t dest_index = 0;

@@ -33,7 +33,7 @@ namespace align_reads
 
     private:
         std::uint32_t start_on_target; // The start index of the aligned segment on the target, 0-based
-        std::uint32_t end_on_target; // end index, exclusive
+        std::uint32_t align_len_on_target; // Align with how many from start (inclusive).
         std::string aligned_chars;
         std::vector<std::string> ins_segments;
     };

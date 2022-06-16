@@ -20,6 +20,10 @@
 
 namespace align_reads {
 
+/*
+ * Old stuff, to be refactored and removed.
+ */
+
 struct Data {
     std::vector<PyObject*> X;
     std::vector<PyObject*> Y;        

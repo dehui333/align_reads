@@ -5,6 +5,13 @@
 
 #include "align_reads/Overlapper.hpp"
 
+/*
+ * Manages indexing of (different groups) of sequences and finding overlaps 
+ * of an input sequence with an indexed group of sequences.
+ * 
+ */
+
+
 namespace align_reads
 {
     class Overlapper

@@ -40,6 +40,11 @@ namespace align_reads
         // Frees(consumes) the edlib result.
         alignment_segment(std::string &query, std::string &target,
                           std::uint32_t q_start, std::uint32_t t_start, EdlibAlignResult &result);
+        
+        alignment_segment(std::string &query, std::string &target,
+                          std::uint32_t q_start, std::uint32_t t_start,
+                          std::uint32_t q_len, std::uint32_t t_len,
+                           EdlibAlignMode mode, EdlibAlignTask task);
 
         // Get the characters (possibily '_' ) aligned to the target segment.
         std::string &get_aligned_chars();
@@ -61,6 +66,7 @@ namespace align_reads
     public:
         multi_alignment(std::string &target);
         multi_alignment(std::string &&target);
+        void load_alignment_segments(std::vector<alignment_segment>&& segments);
 
     private:
         std::string target; // The target sequence
@@ -73,6 +79,11 @@ namespace align_reads
     // process one edlib task
     EdlibAlignResult get_edlib_result(const char *q_start, const char *t_start,
                                       std::uint32_t q_len, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task);
+
+    // lacks test
+    alignment_segment get_alignment_segment(std::string& query, std::string& target,
+         std::uint32_t q_start, std::uint32_t t_start, std::uint32_t q_len, std::uint32_t t_len,
+         EdlibAlignMode mode, EdlibAlignTask task);
 
 } // namespace align_reads
 

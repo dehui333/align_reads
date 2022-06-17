@@ -1,11 +1,13 @@
 #include <gtest/gtest.h>
 
+#include "align_reads/Utilities.hpp"
 #define private public
 #include "../src/Aligner.cpp"
 
 extern std::shared_ptr<thread_pool::ThreadPool> pool;
 
-TEST(Aligner, get_edlib_results) {
+TEST(Aligner, get_edlib_results)
+{
     std::string s1 = "ACGT";
     std::string s2 = "AC";
     std::vector<align_reads::edlib_task> tasks;
@@ -20,7 +22,23 @@ TEST(Aligner, get_edlib_results) {
 
     auto result = align_reads::get_edlib_result(s1.c_str(), s1.c_str(), 4, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
     EXPECT_EQ(result.editDistance, 0);
+}
 
+TEST(Aligner, Futures)
+{
+    std::string s1 = "ACGT";
+    std::string s2 = "AC";
+
+    auto futures = align_reads::Futures<EdlibAlignResult>(pool, 3);
+    futures.add_inputs(align_reads::get_edlib_result, s1.c_str(), s1.c_str(), 4, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
+    futures.add_inputs(align_reads::get_edlib_result, s1.c_str(), s2.c_str(), 4, 2, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
+    futures.add_inputs(align_reads::get_edlib_result, s2.c_str(), s1.c_str(), 2, 4, EDLIB_MODE_PREFIX, EDLIB_TASK_DISTANCE);
+
+    auto results = futures.get();
+
+    EXPECT_EQ(results[0].editDistance, 0);
+    EXPECT_EQ(results[1].editDistance, 2);
+    EXPECT_EQ(results[2].editDistance, 0);
 }
 
 TEST(Aligner_alignment_segment, global_all_match)
@@ -108,21 +126,20 @@ TEST(Aligner_alignment_segment, infix)
     EXPECT_EQ(align_segment.align_len_on_target, 3);
     EXPECT_EQ(align_segment.get_aligned_chars(), "CG");
 
-    
     int i = 0;
     for (i = -1; i < 1; i++)
     {
         EXPECT_EQ(align_segment.get_ins_segment_at(i).size(), 0);
     }
-    
+
     t = "ACGT";
-    q ="TATG";
+    q = "TATG";
     result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
     align_segment = align_reads::alignment_segment(q, t, 0, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.align_len_on_target, 3);
     EXPECT_EQ(align_segment.get_aligned_chars(), "ATG");
-    EXPECT_EQ(align_segment.get_ins_segment_at(-1), "T");   
+    EXPECT_EQ(align_segment.get_ins_segment_at(-1), "T");
 }
 
 TEST(Aligner_alignment_segment, prefix)
@@ -135,19 +152,18 @@ TEST(Aligner_alignment_segment, prefix)
     EXPECT_EQ(align_segment.align_len_on_target, 3);
     EXPECT_EQ(align_segment.get_aligned_chars(), "_CG");
 
-    
     int i = 0;
     for (i = -1; i < 3; i++)
     {
         EXPECT_EQ(align_segment.get_ins_segment_at(i).size(), 0);
     }
-    
+
     t = "ACGT";
-    q ="TA";
+    q = "TA";
     result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_PREFIX, EDLIB_TASK_PATH);
     align_segment = align_reads::alignment_segment(q, t, 0, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.align_len_on_target, 1);
     EXPECT_EQ(align_segment.get_aligned_chars(), "A");
-    EXPECT_EQ(align_segment.get_ins_segment_at(-1), "T");   
+    EXPECT_EQ(align_segment.get_ins_segment_at(-1), "T");
 }

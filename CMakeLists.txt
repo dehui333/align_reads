@@ -67,8 +67,7 @@ include_directories(include edlib/include ${numpyinc} ${using_pyinc})
 # source
 add_library(align_reads STATIC edlib/src/edlib.cpp src/Inputs.cpp src/Overlapper.cpp
   src/Generator.cpp
-  src/Aligner.cpp
-  src/Types.cpp)
+  src/Aligner.cpp)
 
 # python library
 target_link_libraries(align_reads ${using_pylib})
@@ -103,7 +102,6 @@ add_executable(
   tests/Overlapper_tests.cpp
   tests/Generator_tests.cpp
   tests/Aligner_test.cpp
-  tests/Types_test.cpp
 )
 target_link_libraries(
   tests

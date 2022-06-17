@@ -9,6 +9,8 @@
 
 namespace align_reads
 {
+    //----------------- alignment_segment---------------------------
+
     alignment_segment::alignment_segment(std::string &query, std::string &target,
                                          std::uint32_t q_start, std::uint32_t t_start,
                                          EdlibAlignResult &result)
@@ -86,6 +88,17 @@ namespace align_reads
         return ins_segments[index + 1];
     }
 
+    //----------------- multi_alignment---------------------------
+
+    multi_alignment::multi_alignment(std::string &target) : target(target) {}
+    multi_alignment::multi_alignment(std::string &&target) : target(std::move(target)) {}
+
+    void multi_alignment::load_alignment_segments(std::vector<alignment_segment> &&segments)
+    {
+        this->alignment_segments = std::move(segments);
+    }
+
+    //-----------------free---------------------------
     std::vector<EdlibAlignResult> get_edlib_results(std::vector<edlib_task> &tasks,
                                                     std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
@@ -113,6 +126,15 @@ namespace align_reads
                                       std::uint32_t q_len, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task)
     {
         return edlibAlign(q_start, q_len, t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
+    }
+
+    alignment_segment get_alignment_segment(std::string &query, std::string &target,
+                                            std::uint32_t q_start, std::uint32_t t_start, std::uint32_t q_len, std::uint32_t t_len,
+                                            EdlibAlignMode mode, EdlibAlignTask task)
+    {
+        auto result = edlibAlign(query.c_str() + q_start, q_len,
+                                 target.c_str() + t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
+        return {query, target, q_start, t_start, result};
     }
 
 } // namespace align_reads

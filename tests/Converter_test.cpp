@@ -18,9 +18,9 @@ TEST(Converter, Converter_all_match)
     std::string q3 = "CCGG";
 
     Futures<AlignmentSegment> futures(pool, 3);
-    futures.add_inputs(get_alignment_segment, q1, t, 0, 0, 4, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
-    futures.add_inputs(get_alignment_segment, q2, t, 0, 4, 4, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
-    futures.add_inputs(get_alignment_segment, q3, t, 0, 8, 4, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q1, 0, 4, t, 0, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q2, 0, 4, t, 4, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q3, 0, 4, t, 8, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
     std::vector<AlignmentSegment> segments = futures.get();
     
     EXPECT_EQ(segments[0].aligned_chars, "TAGG");
@@ -45,9 +45,9 @@ TEST(Converter, Converter_all_match)
     q2 = "GCAT";
     q3 = "ACCG";
 
-    futures.add_inputs(get_alignment_segment, q1, t, 0, 0, 4, 6, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
-    futures.add_inputs(get_alignment_segment, q2, t, 0, 2, 4, 5, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
-    futures.add_inputs(get_alignment_segment, q3, t, 0, 6, 4, 5, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q1, 0, 4, t, 0, 6, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q2, 0, 4, t, 2, 5, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q3, 0, 4, t, 6, 5, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
     segments = futures.get();
     
     m_align = {std::move(t), std::move(segments)};
@@ -75,9 +75,9 @@ TEST(Converter, Converter_del)
     std::string q3 = "TAAGG";
 
     Futures<AlignmentSegment> futures(pool, 3);
-    futures.add_inputs(get_alignment_segment, q1, t, 0, 0, 4, 5, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
-    futures.add_inputs(get_alignment_segment, q2, t, 0, 4, 5, 6, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
-    futures.add_inputs(get_alignment_segment, q3, t, 0, 6, 5, 6, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q1, 0, 4, t, 0, 5, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q2, 0, 5, t, 4, 6, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q3, 0, 5, t, 6, 6, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
     std::vector<AlignmentSegment> segments = futures.get();
     
     EXPECT_EQ(segments[0].aligned_chars, "T_GGC");

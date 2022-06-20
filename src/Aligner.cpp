@@ -126,8 +126,8 @@ namespace align_reads
         return edlibAlign(q_start, q_len, t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
     }
 
-    AlignmentSegment get_alignment_segment(std::string &query, std::string &target,
-                                            std::uint32_t q_start, std::uint32_t t_start, std::uint32_t q_len, std::uint32_t t_len,
+    AlignmentSegment get_alignment_segment(std::string &query, std::uint32_t q_start, std::uint32_t q_len, 
+                                            std::string &target, std::uint32_t t_start, std::uint32_t t_len,
                                             EdlibAlignMode mode, EdlibAlignTask task)
     {
         auto result = edlibAlign(query.c_str() + q_start, q_len,

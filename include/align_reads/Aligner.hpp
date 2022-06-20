@@ -24,7 +24,7 @@ namespace align_reads
         EdlibAlignMode mode;
         EdlibAlignTask task;
 
-        EdlibTask(const char *q_start, const char *t_start, std::uint32_t q_len, std::uint32_t t_len,
+        EdlibTask(const char *q_start, std::uint32_t q_len, const char *t_start, std::uint32_t t_len,
                    EdlibAlignMode mode, EdlibAlignTask task)
             : query_start(q_start), target_start(t_start), query_len(q_len), target_len(t_len), mode(mode), task(task) {}
     };
@@ -38,13 +38,13 @@ namespace align_reads
         // q_start/t_start are offsets from the start of query/target
         // when aligning with edlib. Result should contain path.
         // Frees(consumes) the edlib result.
-        AlignmentSegment(std::string &query, std::string &target,
-                          std::uint32_t q_start, std::uint32_t t_start, EdlibAlignResult &result);
+        AlignmentSegment(std::string &query, std::uint32_t q_start, 
+                         std::string &target, std::uint32_t t_start, EdlibAlignResult &result);
         
-        AlignmentSegment(std::string &query, std::string &target,
+        /*AlignmentSegment(std::string &query, std::string &target,
                           std::uint32_t q_start, std::uint32_t t_start,
                           std::uint32_t q_len, std::uint32_t t_len,
-                           EdlibAlignMode mode, EdlibAlignTask task);
+                           EdlibAlignMode mode, EdlibAlignTask task);*/
 
         // Get the characters (possibily '_' ) aligned to the target segment.
         std::string &get_aligned_chars();

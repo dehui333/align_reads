@@ -8,14 +8,17 @@ namespace align_reads
                                            std::uint32_t matrix_width, std::uint32_t matrix_height)
         : alignment_ptr(&alignment), matrix_width(matrix_width), matrix_height(matrix_height)
     {
+        std::uint32_t i = 0;
+        std::uint32_t j = 0;
         // record the highest number of ins at each target pos
         std::vector<std::uint32_t> max_ins_at_pos;
         max_ins_at_pos.resize(alignment_ptr->target.size(), 0);
         for (auto &s : alignment_ptr->alignment_segments)
         {
             std::uint32_t index_on_target = s.start_on_target;
-            for (auto &ins_segment : s.ins_segments)
+            for (i = 1; i < s.ins_segments.size(); i++) // * ignoring ins to the left
             {
+                auto& ins_segment = s.ins_segments[i];
                 if (ins_segment.size() > max_ins_at_pos[index_on_target])
                 {
                     max_ins_at_pos[index_on_target] = ins_segment.size();
@@ -29,8 +32,7 @@ namespace align_reads
         target_pos_window_index.reserve(alignment_ptr->target.size());
         std::vector<std::vector<std::uint32_t>> ins_pos_window_index;
         ins_pos_window_index.resize(alignment_ptr->target.size());
-        std::uint32_t i = 0;
-        std::uint32_t j = 0;
+        
         for (auto &s : ins_pos_window_index)
         {
             s.reserve(max_ins_at_pos[i++]);
@@ -45,6 +47,7 @@ namespace align_reads
             }
         }
 
+
         // record the segments that fall into each window
         segments_in_windows.resize(width_index / matrix_width + (width_index % matrix_width == 0 ? 0 : 1));
         i = 0;
@@ -56,7 +59,7 @@ namespace align_reads
             {
                 last_window = ins_pos_window_index[segment.end_on_target][segment.ins_segments.back().size() - 1];
             }
-           
+            
             for (j = first_window; j <= last_window; j++)
             {
                 segments_in_windows[j].push_back(i);

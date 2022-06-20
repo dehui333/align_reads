@@ -83,8 +83,8 @@ namespace align_reads
     std::vector<EdlibAlignResult> get_edlib_results(std::vector<EdlibTask> &tasks, std::shared_ptr<thread_pool::ThreadPool> &pool);
 
     // process one edlib task
-    EdlibAlignResult get_edlib_result(const char *q_start, const char *t_start,
-                                      std::uint32_t q_len, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task);
+    EdlibAlignResult get_edlib_result(const char *q_start, std::uint32_t q_len, 
+                                      const char *t_start, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task);
 
     // Integrates alignment, straightaway gives alignment_segment
     AlignmentSegment get_alignment_segment(std::string& query, std::uint32_t q_start, std::uint32_t q_len, 

@@ -20,7 +20,7 @@ TEST(Aligner, get_edlib_results)
     EXPECT_EQ(results[1].editDistance, 2);
     EXPECT_EQ(results[2].editDistance, 0);
 
-    auto result = align_reads::get_edlib_result(s1.c_str(), s1.c_str(), 4, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
+    auto result = align_reads::get_edlib_result(s1.c_str(), 4, s1.c_str(), 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
     EXPECT_EQ(result.editDistance, 0);
 }
 
@@ -30,9 +30,9 @@ TEST(Aligner, Futures)
     std::string s2 = "AC";
 
     auto futures = align_reads::Futures<EdlibAlignResult>(pool, 3);
-    futures.add_inputs(align_reads::get_edlib_result, s1.c_str(), s1.c_str(), 4, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
-    futures.add_inputs(align_reads::get_edlib_result, s1.c_str(), s2.c_str(), 4, 2, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
-    futures.add_inputs(align_reads::get_edlib_result, s2.c_str(), s1.c_str(), 2, 4, EDLIB_MODE_PREFIX, EDLIB_TASK_DISTANCE);
+    futures.add_inputs(align_reads::get_edlib_result, s1.c_str(), 4, s1.c_str(), 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
+    futures.add_inputs(align_reads::get_edlib_result, s1.c_str(), 4, s2.c_str(), 2, EDLIB_MODE_GLOBAL, EDLIB_TASK_DISTANCE);
+    futures.add_inputs(align_reads::get_edlib_result, s2.c_str(), 2, s1.c_str(), 4, EDLIB_MODE_PREFIX, EDLIB_TASK_DISTANCE);
 
     auto results = futures.get();
 
@@ -44,7 +44,7 @@ TEST(Aligner, Futures)
 TEST(Aligner_AlignmentSegment, global_all_match)
 {
     std::string s1 = "ACGT";
-    auto result = align_reads::get_edlib_result(s1.c_str(), s1.c_str(), 4, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+    auto result = align_reads::get_edlib_result(s1.c_str(), 4, s1.c_str(), 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
     auto align_segment = align_reads::AlignmentSegment(s1, 0, s1, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 3);
@@ -68,7 +68,7 @@ TEST(Aligner_AlignmentSegment, global_ins)
 {
     std::string t = "GGGG";
     std::string q = "AGGGG";
-    auto result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+    auto result = align_reads::get_edlib_result(q.c_str(), q.size(), t.c_str(), t.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
     auto align_segment = align_reads::AlignmentSegment(q, 0, t, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 3);
@@ -98,7 +98,7 @@ TEST(Aligner_AlignmentSegment, global_ins)
 
     t = "GGGG";
     q = "AGAGGGAA";
-    result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+    result = align_reads::get_edlib_result(q.c_str(), q.size(), t.c_str(), t.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
     align_segment = align_reads::AlignmentSegment(q, 0, t, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 3);
@@ -123,7 +123,7 @@ TEST(Aligner_AlignmentSegment, global_del)
 {
     std::string t = "ACGT";
     std::string q = "AGT";
-    auto result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+    auto result = align_reads::get_edlib_result(q.c_str(), q.size(), t.c_str(), t.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
     auto align_segment = align_reads::AlignmentSegment(q, 0, t, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 3);
@@ -137,7 +137,7 @@ TEST(Aligner_AlignmentSegment, global_del)
 
     t = "ACGT";
     q = "AT";
-    result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+    result = align_reads::get_edlib_result(q.c_str(), q.size(), t.c_str(), t.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
     align_segment = align_reads::AlignmentSegment(q, 0, t, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 3);
@@ -153,7 +153,7 @@ TEST(Aligner_AlignmentSegment, infix)
 {
     std::string t = "ACGT";
     std::string q = "CG";
-    auto result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    auto result = align_reads::get_edlib_result(q.c_str(), q.size(), t.c_str(), t.size(), EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
     auto align_segment = align_reads::AlignmentSegment(q, 0, t, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 1);
     EXPECT_EQ(align_segment.end_on_target, 2);
@@ -178,7 +178,7 @@ TEST(Aligner_AlignmentSegment, infix)
 
     t = "ACGT";
     q = "TATG";
-    result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    result = align_reads::get_edlib_result(q.c_str(), q.size(), t.c_str(), t.size(), EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
     align_segment = align_reads::AlignmentSegment(q, 0, t, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 2);
@@ -190,7 +190,7 @@ TEST(Aligner_AlignmentSegment, prefix)
 {
     std::string t = "ACGT";
     std::string q = "CG";
-    auto result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_PREFIX, EDLIB_TASK_PATH);
+    auto result = align_reads::get_edlib_result(q.c_str(), q.size(), t.c_str(), t.size(), EDLIB_MODE_PREFIX, EDLIB_TASK_PATH);
     auto align_segment = align_reads::AlignmentSegment(q, 0, t, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 2);
@@ -215,7 +215,7 @@ TEST(Aligner_AlignmentSegment, prefix)
 
     t = "ACGT";
     q = "TA";
-    result = align_reads::get_edlib_result(q.c_str(), t.c_str(), q.size(), t.size(), EDLIB_MODE_PREFIX, EDLIB_TASK_PATH);
+    result = align_reads::get_edlib_result(q.c_str(), q.size(), t.c_str(), t.size(), EDLIB_MODE_PREFIX, EDLIB_TASK_PATH);
     align_segment = align_reads::AlignmentSegment(q, 0, t, 0, result);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 0);

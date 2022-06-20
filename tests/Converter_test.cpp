@@ -95,7 +95,45 @@ TEST(Converter, Converter_del)
     
     EXPECT_EQ(s0, a0);
     EXPECT_EQ(s1, a1);
-    EXPECT_EQ(s2, a2);
+    EXPECT_EQ(s2, a2);  
+}
+
+TEST(Converter, Converter_ins)
+{
     
+    std::string t  = "TAGGCATACAGG";
+    std::string q1 = "TAGTG";
+    std::string q2 = "CAACATGG";
+    std::string q3 = "TGGCATATCA";
+    // TAG_|GCAT|A_CA|_GG
+
+    Futures<AlignmentSegment> futures(pool, 3);
+    futures.add_inputs(get_alignment_segment, q1, 0, 5, t, 0, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q2, 0, 8, t, 4, 8, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q3, 0, 10, t, 0, 12, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    std::vector<AlignmentSegment> segments = futures.get();
     
+    EXPECT_EQ(segments[0].aligned_chars, "TAGG");
+    EXPECT_EQ(segments[1].aligned_chars, "CA_ACAGG");
+    EXPECT_EQ(segments[2].aligned_chars, "T_GGCATACA");
+    EXPECT_EQ(segments[0].get_ins_segment_at(2), "T");
+    EXPECT_EQ(segments[1].get_ins_segment_at(5), "T");
+    EXPECT_EQ(segments[2].get_ins_segment_at(7), "T");
+    MultiAlignment m_align {std::move(t), std::move(segments)};
+    
+    AlignmentConverter converter {m_align, 4, 3};
+    
+    std::set<std::uint32_t> s0(converter.segments_in_windows[0].begin(), converter.segments_in_windows[0].end());
+    std::set<std::uint32_t> a0 {0, 2};
+    std::set<std::uint32_t> s1(converter.segments_in_windows[1].begin(), converter.segments_in_windows[1].end());
+    std::set<std::uint32_t> a1 {0, 1, 2};
+    std::set<std::uint32_t> s2(converter.segments_in_windows[2].begin(), converter.segments_in_windows[2].end());
+    std::set<std::uint32_t> a2 {1, 2};
+    std::set<std::uint32_t> s3(converter.segments_in_windows[3].begin(), converter.segments_in_windows[3].end());
+    std::set<std::uint32_t> a3 {1};
+    
+    EXPECT_EQ(s0, a0);
+    EXPECT_EQ(s1, a1);
+    EXPECT_EQ(s2, a2);  
+    EXPECT_EQ(s3, a3);  
 }

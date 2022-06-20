@@ -120,8 +120,8 @@ namespace align_reads
         return results;
     }
 
-    EdlibAlignResult get_edlib_result(const char *q_start, const char *t_start,
-                                      std::uint32_t q_len, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task)
+    EdlibAlignResult get_edlib_result(const char *q_start, std::uint32_t q_len, 
+                                     const char *t_start, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task)
     {
         return edlibAlign(q_start, q_len, t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
     }

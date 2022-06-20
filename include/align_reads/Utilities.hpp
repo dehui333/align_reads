@@ -26,6 +26,7 @@ namespace align_reads
             {
                 results.push_back(f.get());
             }
+            futures.clear();
             return results;
         }
 

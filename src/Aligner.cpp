@@ -1,5 +1,6 @@
 #include <assert.h>
 
+#include "align_reads/Converter.hpp"
 #include "edlib.h"
 #include "thread_pool/thread_pool.hpp"
 
@@ -9,15 +10,15 @@
 
 namespace align_reads
 {
-    //----------------- alignment_segment---------------------------
+    //-----------------AlignmentSegment---------------------------
 
-    alignment_segment::alignment_segment(std::string &query, std::string &target,
+    AlignmentSegment::AlignmentSegment(std::string &query, std::string &target,
                                          std::uint32_t q_start, std::uint32_t t_start,
                                          EdlibAlignResult &result)
     {
         std::uint32_t aligned_len_on_target = result.endLocations[0] + 1 - result.startLocations[0];
         this->start_on_target = t_start + result.startLocations[0];
-        this->align_len_on_target = t_start + result.endLocations[0] + 1;
+        this->end_on_target = t_start + result.endLocations[0];
         this->aligned_chars.reserve(aligned_len_on_target);
         this->ins_segments.resize(aligned_len_on_target + 1);
         std::uint32_t dest_index = 0;
@@ -78,28 +79,25 @@ namespace align_reads
         edlibFreeAlignResult(result);
     }
 
-    std::string &alignment_segment::get_aligned_chars()
+    std::string &AlignmentSegment::get_aligned_chars()
     {
         return aligned_chars;
     }
 
-    std::string &alignment_segment::get_ins_segment_at(int index)
+    std::string &AlignmentSegment::get_ins_segment_at(int index)
     {
         return ins_segments[index + 1];
     }
 
-    //----------------- multi_alignment---------------------------
+    //----------------- MultiAlignment---------------------------
 
-    multi_alignment::multi_alignment(std::string &target) : target(target) {}
-    multi_alignment::multi_alignment(std::string &&target) : target(std::move(target)) {}
-
-    void multi_alignment::load_alignment_segments(std::vector<alignment_segment> &&segments)
-    {
-        this->alignment_segments = std::move(segments);
-    }
+    MultiAlignment::MultiAlignment(std::string &target,
+     std::vector<AlignmentSegment>& segments) : target(target), alignment_segments(segments) {}
+    MultiAlignment::MultiAlignment(std::string &&target,
+     std::vector<AlignmentSegment>&& segments) : target(std::move(target)), alignment_segments(std::move(segments)) {}
 
     //-----------------free---------------------------
-    std::vector<EdlibAlignResult> get_edlib_results(std::vector<edlib_task> &tasks,
+    std::vector<EdlibAlignResult> get_edlib_results(std::vector<EdlibTask> &tasks,
                                                     std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
         std::vector<std::future<EdlibAlignResult>> futures;
@@ -128,7 +126,7 @@ namespace align_reads
         return edlibAlign(q_start, q_len, t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
     }
 
-    alignment_segment get_alignment_segment(std::string &query, std::string &target,
+    AlignmentSegment get_alignment_segment(std::string &query, std::string &target,
                                             std::uint32_t q_start, std::uint32_t t_start, std::uint32_t q_len, std::uint32_t t_len,
                                             EdlibAlignMode mode, EdlibAlignTask task)
     {

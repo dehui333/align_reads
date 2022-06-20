@@ -54,7 +54,7 @@ TEST(Aligner_AlignmentSegment, global_all_match)
         EXPECT_EQ(align_segment.get_ins_segment_at(i).size(), 0);
     }
 
-    align_segment = align_reads::get_alignment_segment(s1, s1, 0, 0, 4, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+    align_segment = align_reads::get_alignment_segment(s1, 0, 4, s1, 0, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 3);
     EXPECT_EQ(align_segment.get_aligned_chars().compare(s1), 0);
@@ -82,7 +82,7 @@ TEST(Aligner_AlignmentSegment, global_ins)
     }
     EXPECT_EQ(align_segment.get_ins_segment_at(-1), "A");
 
-    align_segment = align_reads::get_alignment_segment(q, t, 0, 0, 5, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+    align_segment = align_reads::get_alignment_segment(q, 0, 5, t, 0, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 3);
     EXPECT_EQ(align_segment.get_aligned_chars().compare(t), 0);
@@ -108,7 +108,7 @@ TEST(Aligner_AlignmentSegment, global_ins)
     EXPECT_EQ(align_segment.get_ins_segment_at(0).size(), 1);
     EXPECT_EQ(align_segment.get_ins_segment_at(3).size(), 2);
 
-    align_segment = align_reads::get_alignment_segment(q, t, 0, 0, 8, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+    align_segment = align_reads::get_alignment_segment(q, 0, 8, t, 0, 4, EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
     EXPECT_EQ(align_segment.start_on_target, 0);
     EXPECT_EQ(align_segment.end_on_target, 3);
     EXPECT_EQ(align_segment.get_aligned_chars().compare(t), 0);
@@ -165,7 +165,7 @@ TEST(Aligner_AlignmentSegment, infix)
         EXPECT_EQ(align_segment.get_ins_segment_at(i).size(), 0);
     }
 
-    align_segment = align_reads::get_alignment_segment(q, t, 0, 1, 2, 3, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    align_segment = align_reads::get_alignment_segment(q, 0, 2, t, 1, 3, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
     EXPECT_EQ(align_segment.start_on_target, 1);
     EXPECT_EQ(align_segment.end_on_target, 2);
     EXPECT_EQ(align_segment.get_aligned_chars(), "CG");
@@ -202,7 +202,7 @@ TEST(Aligner_AlignmentSegment, prefix)
         EXPECT_EQ(align_segment.get_ins_segment_at(i).size(), 0);
     }
 
-    align_segment = align_reads::get_alignment_segment(q, t, 0, 1, 2, 3, EDLIB_MODE_PREFIX, EDLIB_TASK_PATH);
+    align_segment = align_reads::get_alignment_segment(q, 0, 2, t, 1, 3, EDLIB_MODE_PREFIX, EDLIB_TASK_PATH);
     EXPECT_EQ(align_segment.start_on_target, 1);
     EXPECT_EQ(align_segment.end_on_target, 2);
     EXPECT_EQ(align_segment.get_aligned_chars(), "CG");

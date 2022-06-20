@@ -87,8 +87,8 @@ namespace align_reads
                                       std::uint32_t q_len, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task);
 
     // Integrates alignment, straightaway gives alignment_segment
-    AlignmentSegment get_alignment_segment(std::string& query, std::string& target,
-         std::uint32_t q_start, std::uint32_t t_start, std::uint32_t q_len, std::uint32_t t_len,
+    AlignmentSegment get_alignment_segment(std::string& query, std::uint32_t q_start, std::uint32_t q_len, 
+         std::string& target, std::uint32_t t_start, std::uint32_t t_len,
          EdlibAlignMode mode, EdlibAlignTask task);
 
 } // namespace align_reads

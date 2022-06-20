@@ -12,8 +12,8 @@ namespace align_reads
 {
     //-----------------AlignmentSegment---------------------------
 
-    AlignmentSegment::AlignmentSegment(std::string &query, std::string &target,
-                                         std::uint32_t q_start, std::uint32_t t_start,
+    AlignmentSegment::AlignmentSegment(std::string &query, std::uint32_t q_start, 
+                                       std::string &target, std::uint32_t t_start,
                                          EdlibAlignResult &result)
     {
         std::uint32_t aligned_len_on_target = result.endLocations[0] + 1 - result.startLocations[0];
@@ -132,7 +132,7 @@ namespace align_reads
     {
         auto result = edlibAlign(query.c_str() + q_start, q_len,
                                  target.c_str() + t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
-        return {query, target, q_start, t_start, result};
+        return {query, q_start, target,  t_start, result};
     }
 
 } // namespace align_reads

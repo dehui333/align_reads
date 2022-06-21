@@ -7,14 +7,15 @@
 #include "align_reads/Aligner.hpp"
 
 #define GAP_CHAR '_'
+#define PAD_CHAR '*' // Also defined in Converter.cpp
 
 namespace align_reads
 {
     //-----------------AlignmentSegment---------------------------
 
-    AlignmentSegment::AlignmentSegment(std::string &query, std::uint32_t q_start, 
+    AlignmentSegment::AlignmentSegment(std::string &query, std::uint32_t q_start,
                                        std::string &target, std::uint32_t t_start,
-                                         EdlibAlignResult &result)
+                                       EdlibAlignResult &result)
     {
         std::uint32_t aligned_len_on_target = result.endLocations[0] + 1 - result.startLocations[0];
         this->start_on_target = t_start + result.startLocations[0];
@@ -89,12 +90,31 @@ namespace align_reads
         return ins_segments[index + 1];
     }
 
+    char AlignmentSegment::get_at_target_pos(std::uint32_t target_index, std::uint32_t ins_index)
+    {
+        
+        if (ins_index == 0)
+            return aligned_chars[target_index - start_on_target];
+
+        if (ins_index > ins_segments[target_index - start_on_target + 1].size())
+        {
+            if (target_index == end_on_target)
+            {
+                return PAD_CHAR;
+            } else {
+                return GAP_CHAR;
+            }
+        }
+
+        return ins_segments[target_index - start_on_target + 1][ins_index - 1];
+    }
+
     //----------------- MultiAlignment---------------------------
 
     MultiAlignment::MultiAlignment(std::string &target,
-     std::vector<AlignmentSegment>& segments) : target(target), alignment_segments(segments) {}
+                                   std::vector<AlignmentSegment> &segments) : target(target), alignment_segments(segments) {}
     MultiAlignment::MultiAlignment(std::string &&target,
-     std::vector<AlignmentSegment>&& segments) : target(std::move(target)), alignment_segments(std::move(segments)) {}
+                                   std::vector<AlignmentSegment> &&segments) : target(std::move(target)), alignment_segments(std::move(segments)) {}
 
     //-----------------free---------------------------
     std::vector<EdlibAlignResult> get_edlib_results(std::vector<EdlibTask> &tasks,
@@ -120,19 +140,19 @@ namespace align_reads
         return results;
     }
 
-    EdlibAlignResult get_edlib_result(const char *q_start, std::uint32_t q_len, 
-                                     const char *t_start, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task)
+    EdlibAlignResult get_edlib_result(const char *q_start, std::uint32_t q_len,
+                                      const char *t_start, std::uint32_t t_len, EdlibAlignMode mode, EdlibAlignTask task)
     {
         return edlibAlign(q_start, q_len, t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
     }
 
-    AlignmentSegment get_alignment_segment(std::string &query, std::uint32_t q_start, std::uint32_t q_len, 
-                                            std::string &target, std::uint32_t t_start, std::uint32_t t_len,
-                                            EdlibAlignMode mode, EdlibAlignTask task)
+    AlignmentSegment get_alignment_segment(std::string &query, std::uint32_t q_start, std::uint32_t q_len,
+                                           std::string &target, std::uint32_t t_start, std::uint32_t t_len,
+                                           EdlibAlignMode mode, EdlibAlignTask task)
     {
         auto result = edlibAlign(query.c_str() + q_start, q_len,
                                  target.c_str() + t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
-        return {query, q_start, target,  t_start, result};
+        return {query, q_start, target, t_start, result};
     }
 
 } // namespace align_reads

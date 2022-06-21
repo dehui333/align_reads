@@ -6,6 +6,8 @@
 
 extern std::shared_ptr<thread_pool::ThreadPool> pool;
 
+using namespace align_reads;
+
 TEST(Aligner, get_edlib_results)
 {
     std::string s1 = "ACGT";
@@ -62,6 +64,8 @@ TEST(Aligner_AlignmentSegment, global_all_match)
     {
         EXPECT_EQ(align_segment.get_ins_segment_at(i).size(), 0);
     }
+
+
 }
 
 TEST(Aligner_AlignmentSegment, global_ins)
@@ -221,4 +225,35 @@ TEST(Aligner_AlignmentSegment, prefix)
     EXPECT_EQ(align_segment.end_on_target, 0);
     EXPECT_EQ(align_segment.get_aligned_chars(), "A");
     EXPECT_EQ(align_segment.get_ins_segment_at(-1), "T");
+}
+
+TEST(Aligner_AlignmentSegment, get_at_target_pos)
+{
+    std::string t  = "TAGGCATACAGG";
+    std::string q1 = "TAGTG";
+    std::string q2 = "CAACATGG";
+    std::string q3 = "TGGCATATCA";
+    // TAG_|GCAT|A_CA|_GG
+
+    Futures<AlignmentSegment> futures(pool, 3);
+    futures.add_inputs(get_alignment_segment, q1, 0, 5, t, 0, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q2, 0, 8, t, 4, 8, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q3, 0, 10, t, 0, 12, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    std::vector<AlignmentSegment> segments = futures.get();
+
+    EXPECT_EQ(segments[0].get_at_target_pos(0, 0), 'T');
+    EXPECT_EQ(segments[0].get_at_target_pos(1, 0), 'A');
+    EXPECT_EQ(segments[0].get_at_target_pos(2, 0), 'G');
+    EXPECT_EQ(segments[0].get_at_target_pos(2, 1), 'T');
+    EXPECT_EQ(segments[0].get_at_target_pos(3, 0), 'G');
+
+    EXPECT_EQ(segments[1].get_at_target_pos(4, 0), 'C');
+    EXPECT_EQ(segments[1].get_at_target_pos(5, 0), 'A');
+    EXPECT_EQ(segments[1].get_at_target_pos(6, 0), '_');
+    EXPECT_EQ(segments[1].get_at_target_pos(7, 0), 'A');
+    EXPECT_EQ(segments[1].get_at_target_pos(8, 0), 'C');
+    EXPECT_EQ(segments[1].get_at_target_pos(9, 0), 'A');
+    EXPECT_EQ(segments[1].get_at_target_pos(9, 1), 'T');
+    EXPECT_EQ(segments[1].get_at_target_pos(10, 0), 'G');
+    EXPECT_EQ(segments[1].get_at_target_pos(11, 0), 'G');
 }

@@ -53,9 +53,14 @@ namespace align_reads
         // -1 for ins segment before 0.
         std::string &get_ins_segment_at(int index);
 
+        // Get the aligned/inserted char w.r.t. to positions on the target
+        // Assumes the position is within the alignment span of this segment. 
+        // (>= start_on_target and <= end_on_target)
+        char get_at_target_pos(std::uint32_t target_index, std::uint32_t ins_index);
+
     private:
         std::uint32_t start_on_target;     // The start index of the aligned segment on the target, 0-based
-        std::uint32_t end_on_target; // The end index, 0-based
+        std::uint32_t end_on_target; // The end index, 0-based, inclusive
         std::string aligned_chars;
         std::vector<std::string> ins_segments;
 

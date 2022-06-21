@@ -991,7 +991,7 @@ namespace align_reads {
             if (num_choices == 0) continue;
 
             // fill 1st row of matrix with target
-            auto x = PyArray_SimpleNew(2, dims, NPY_UINT8);        
+                     
             fill_X_from_target(x, window_index, 0);
 
             PyObject* y = nullptr;

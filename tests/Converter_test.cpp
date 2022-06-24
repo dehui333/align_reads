@@ -598,7 +598,120 @@ TEST(Converter, produce_data)
     chosen.resize(2);
     chosen[0] = {0, 1, 2, 3};
     chosen[1] = {1, 4, 4, 3};
-    Data data = converter.produce_data(chosen);
+    std::shared_ptr<thread_pool::ThreadPool> null_pool = nullptr;
+    Data data = converter.produce_data(chosen, null_pool);
+    EXPECT_EQ(data.Xs.size(), 2);
+    auto x = data.Xs[0];
+    auto x2 = data.Xs[1];
+    uint8_t* value_ptr;
+    // check first matrix first row
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 0);
+    EXPECT_EQ(*value_ptr, ENCODER['T']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 1);
+    EXPECT_EQ(*value_ptr, ENCODER['A']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 2);
+    EXPECT_EQ(*value_ptr, ENCODER['G']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 3);
+    EXPECT_EQ(*value_ptr, ENCODER['T']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 4);
+    EXPECT_EQ(*value_ptr, ENCODER['G']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 5);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 6);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 7);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 8);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 9);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 10);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 11);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+
+    // check first matrix fourth row
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 0);
+    EXPECT_EQ(*value_ptr, ENCODER['T']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 1);
+    EXPECT_EQ(*value_ptr, ENCODER['A']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 2);
+    EXPECT_EQ(*value_ptr, ENCODER['G']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 3);
+    EXPECT_EQ(*value_ptr, ENCODER['_']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 4);
+    EXPECT_EQ(*value_ptr, ENCODER['G']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 5);
+    EXPECT_EQ(*value_ptr, ENCODER['C']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 6);
+    EXPECT_EQ(*value_ptr, ENCODER['A']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 7);
+    EXPECT_EQ(*value_ptr, ENCODER['T']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 8);
+    EXPECT_EQ(*value_ptr, ENCODER['A']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 9);
+    EXPECT_EQ(*value_ptr, ENCODER['_']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 10);
+    EXPECT_EQ(*value_ptr, ENCODER['C']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 11);
+    EXPECT_EQ(*value_ptr, ENCODER['A']);
+    
+    // check second matrix second row
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 0);
+    EXPECT_EQ(*value_ptr, ENCODER['_']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 1);
+    EXPECT_EQ(*value_ptr, ENCODER['G']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 2);
+    EXPECT_EQ(*value_ptr, ENCODER['G']);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 3);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 4);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 5);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 6);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 7);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 8);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 9);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 10);
+    EXPECT_EQ(*value_ptr, PAD_CODE);
+    value_ptr = (uint8_t*) PyArray_GETPTR2(x2, 1, 11);
+    EXPECT_EQ(*value_ptr, PAD_CODE); 
+}
+
+TEST(Converter, produce_data_parallel)
+{
+    PyInit_align_reads_gen();  
+    std::string t  = "TAGGCATACAGG";
+    std::string q1 = "TAGTG";
+    std::string q2 = "CAACATGGAAAAAAAAAAAAAAAA";
+    std::string q3 = "TGGCATATCA";
+    // TAG_|GCAT|A_CA|_GG
+
+    Futures<AlignmentSegment> futures(pool, 3);
+    futures.add_inputs(get_alignment_segment, q1, 0, 5, t, 0, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q2, 0, 24, t, 4, 8, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q3, 0, 10, t, 0, 12, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, t, 0, 12, t, 0, 12, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    std::vector<AlignmentSegment> segments = futures.get();
+    EXPECT_EQ(segments[1].get_aligned_chars(), "CA_ACAGG");
+    EXPECT_EQ(segments[1].get_ins_segment_at(5), "T");
+    EXPECT_EQ(segments[1].get_ins_segment_at(7), "AAAAAAAAAAAAAAAA");
+    
+    MultiAlignment m_align {std::move(t), std::move(segments)};
+    
+    AlignmentConverter converter {m_align, 4, 12};
+    EXPECT_EQ(converter.segments_in_windows.size(), 2);;
+     
+    std::vector<std::vector<std::uint32_t>> chosen;
+    chosen.resize(2);
+    chosen[0] = {0, 1, 2, 3};
+    chosen[1] = {1, 4, 4, 3};
+    Data data = converter.produce_data(chosen, pool);
     EXPECT_EQ(data.Xs.size(), 2);
     auto x = data.Xs[0];
     auto x2 = data.Xs[1];

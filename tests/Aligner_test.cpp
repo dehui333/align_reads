@@ -231,7 +231,7 @@ TEST(Aligner_AlignmentSegment, get_at_target_pos)
 {
     std::string t  = "TAGGCATACAGG";
     std::string q1 = "TAGTG";
-    std::string q2 = "CAACATGG";
+    std::string q2 = "CAACATGGAAAA";
     std::string q3 = "TGGCATATCA";
     // TAG_|GCAT|A_CA|_GG
 

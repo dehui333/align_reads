@@ -54,8 +54,9 @@ namespace align_reads
         std::string &get_ins_segment_at(int index);
 
         // Get the aligned/inserted char w.r.t. to positions on the target
-        // Assumes the position is within the alignment span of this segment. 
-        // (>= start_on_target and <= end_on_target)
+        // Assumes the position is within the alignment span of this segment excluding
+        // ins before and after. 
+        // (>= (start_on_target, 0) and <= (end_on_target, 0) )
         char get_at_target_pos(std::uint32_t target_index, std::uint32_t ins_index);
 
     private:

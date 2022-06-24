@@ -30,7 +30,7 @@ namespace align_reads
             AlignmentConverter(MultiAlignment& alignment, std::uint32_t matrix_height, std::uint32_t matrix_width);
 
             // Insert input feature matrices 
-            Data produce_data();
+            Data produce_data(std::shared_ptr<thread_pool::ThreadPool> &pool);
 
         private:
             MultiAlignment* alignment_ptr;
@@ -53,7 +53,7 @@ namespace align_reads
             std::vector<std::vector<std::uint32_t>> choose_segments(std::uint32_t num_reserved_for_target, bool sample_target);
 
             // for testing
-            Data produce_data(std::vector<std::vector<std::uint32_t>>& chosen);
+            Data produce_data(std::vector<std::vector<std::uint32_t>>& chosen, std::shared_ptr<thread_pool::ThreadPool> &pool);
 
             
     };

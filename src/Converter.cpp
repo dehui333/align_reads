@@ -2,12 +2,13 @@
 #include <time.h>   // time
 
 #include "align_reads/Converter.hpp"
+#include "align_reads/Utilities.hpp"
 
 #define PAD_CODE 5
 #define PAD_CHAR '*' // Also defined in Aligner.cpp
 
-#define ROW_FOR_TARGET 0
-#define SAMPLE_TARGET false
+#define ROWS_FOR_TARGET 0
+#define SAMPLE_TARGET true
 
 namespace align_reads
 {
@@ -155,7 +156,7 @@ namespace align_reads
         auto current_index = width_idx_to_pos_idx[width_index++];
         std::uint32_t target_index = current_index.first;
         std::uint32_t ins_index = current_index.second;
-        auto& target = alignment_ptr->target;
+        auto &target = alignment_ptr->target;
 
         while (col_index < matrix_width)
         {
@@ -202,63 +203,76 @@ namespace align_reads
         return result;
     }
 
-    Data AlignmentConverter::produce_data()
-    {   
-        Data data;
-        std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
-        std::vector<std::vector<std::uint32_t>> chosen = choose_segments(ROW_FOR_TARGET, SAMPLE_TARGET);
-        std::uint32_t row_idx;
-        npy_intp dims[2];
-        dims[0] = matrix_height;
-        dims[1] = matrix_width;
-        for (std::uint32_t i = 0; i < chosen.size(); i++)
-        {
-            if (chosen[i].empty()) continue;
-            auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8); 
-            row_idx = 0;
-            for (auto alignment_idx : chosen[i])
-            {
-                if (alignment_idx == num_alignment)
-                {
-                    fill_row_from_target(matrix, i, row_idx++);
-                } 
-                else 
-                {
-                    fill_row_from_alignment(matrix, i, row_idx++, alignment_idx);
-                }
-            }
-            data.Xs.push_back(matrix);
-        }
-        return data;
+    Data AlignmentConverter::produce_data(std::shared_ptr<thread_pool::ThreadPool> &pool)
+    {
+        std::vector<std::vector<std::uint32_t>> chosen = choose_segments(ROWS_FOR_TARGET, SAMPLE_TARGET);
+        return produce_data(chosen, pool);
     }
 
-    Data AlignmentConverter::produce_data(std::vector<std::vector<std::uint32_t>>& chosen)
-    {   
+    Data AlignmentConverter::produce_data(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
+    {
         Data data;
         std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
         std::uint32_t row_idx;
         npy_intp dims[2];
         dims[0] = matrix_height;
         dims[1] = matrix_width;
-        
-        for (std::uint32_t i = 0; i < chosen.size(); i++)
+        std::uint32_t i = 0;
+
+        auto produce_matrix = [&](std::vector<std::uint32_t>& alignment_indices, std::uint32_t window_index)
         {
-            if (chosen[i].empty()) continue;
-            auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8); 
-            row_idx = 0;
-            for (auto alignment_idx : chosen[i])
+            auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8);
+            uint32_t row_idx = 0;
+            for (auto alignment_idx : alignment_indices)
             {
                 if (alignment_idx == num_alignment)
                 {
-                    fill_row_from_target(matrix, i, row_idx++);
-                } 
-                else 
+                    this->fill_row_from_target(matrix, window_index, row_idx++);
+                }
+                else
                 {
-                    fill_row_from_alignment(matrix, i, row_idx++, alignment_idx);
+                    this->fill_row_from_alignment(matrix, window_index, row_idx++, alignment_idx);
                 }
             }
-            data.Xs.push_back(matrix);
+            return matrix;
+        };
+
+        if (pool == nullptr)
+        {
+            for (; i < chosen.size(); i++)
+            {
+                if (chosen[i].empty())
+                    continue;
+                auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8);
+                row_idx = 0;
+                for (auto alignment_idx : chosen[i])
+                {
+                    if (alignment_idx == num_alignment)
+                    {
+                        fill_row_from_target(matrix, i, row_idx++);
+                    }
+                    else
+                    {
+                        fill_row_from_alignment(matrix, i, row_idx++, alignment_idx);
+                    }
+                }
+                data.Xs.push_back(matrix);
+            }
         }
+        else
+        {
+            Futures<PyObject *> futures(pool, chosen.size());
+
+            for (; i < chosen.size(); i++)
+            {
+                if (chosen[i].empty())
+                    continue;
+                futures.add_inputs(produce_matrix, chosen[i], i);
+            }
+            auto results = futures.get();
+            data.Xs.insert(data.Xs.end(), results.begin(), results.end());
+        }
+
         return data;
     }
 

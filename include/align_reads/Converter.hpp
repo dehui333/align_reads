@@ -18,15 +18,19 @@
 namespace align_reads 
 {
     // Package carrying feature matrices and auxiliary info
-    /*struct Data 
+    // like which sequence is being aligned to & which sequences are aligning
+    struct Data 
     {
         std::vector<PyObject*> Xs;
+    };
 
-    };*/
     class AlignmentConverter
     {
         public:
             AlignmentConverter(MultiAlignment& alignment, std::uint32_t matrix_height, std::uint32_t matrix_width);
+
+            // Insert input feature matrices 
+            void produce_data();
 
         private:
             MultiAlignment* alignment_ptr;
@@ -39,6 +43,10 @@ namespace align_reads
             // may be inlined?
             void fill_row_from_alignment(PyObject* matrix, std::uint32_t window, 
                 std::uint32_t row, std::uint32_t alignment_idx);
+
+            // may be inlined?
+            void fill_row_from_target(PyObject* matrix, std::uint32_t window, 
+                std::uint32_t row);
 
             // Choose which segments to put into rows of each matrix, where they are 0 indexed.
             // Index 'number of alignments' will refer to fill the row with the target. 

@@ -1,10 +1,14 @@
-#include <stdlib.h>  // srand, rand
-#include <time.h>  // time
+#include <stdlib.h> // srand, rand
+#include <time.h>   // time
 
 #include "align_reads/Converter.hpp"
 
-#define PAD_CODE 5 
+#define PAD_CODE 5
 #define PAD_CHAR '*' // Also defined in Aligner.cpp
+
+#define ROW_FOR_TARGET 0
+#define SAMPLE_TARGET false
+
 namespace align_reads
 {
 
@@ -49,7 +53,7 @@ namespace align_reads
         }
         max_ins_at_pos.back() = 0; // * ignore ins to the right
         // Label each position with its window index
-        
+
         std::vector<std::uint32_t> target_pos_window_index;
         target_pos_window_index.reserve(alignment_ptr->target.size());
         std::vector<std::vector<std::uint32_t>> ins_pos_window_index;
@@ -107,34 +111,72 @@ namespace align_reads
         uint8_t *value_ptr;
         std::uint16_t col_index = 0;
         std::uint32_t width_index = window * matrix_width;
-        AlignmentSegment& segment = alignment_ptr->alignment_segments[alignment_idx];
+        AlignmentSegment &segment = alignment_ptr->alignment_segments[alignment_idx];
         auto current_index = width_idx_to_pos_idx[width_index++];
         std::uint32_t target_index = current_index.first;
         std::uint32_t ins_index = current_index.second;
         // pad on left
-        while(target_index < segment.start_on_target)
+        while (target_index < segment.start_on_target)
         {
-            value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row, col_index++);
+            value_ptr = (uint8_t *)PyArray_GETPTR2(matrix, row, col_index++);
             *value_ptr = PAD_CODE;
-            if (col_index == matrix_width) return;
+            if (col_index == matrix_width)
+                return;
             current_index = width_idx_to_pos_idx[width_index++];
             target_index = current_index.first;
             ins_index = current_index.second;
         }
-        // aligned segment 
+        // aligned segment
         while (target_index <= segment.end_on_target)
         {
-            value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row, col_index++);    
+            value_ptr = (uint8_t *)PyArray_GETPTR2(matrix, row, col_index++);
             *value_ptr = ENCODER[static_cast<std::uint8_t>(segment.get_at_target_pos(target_index, ins_index))];
-            if (col_index == matrix_width) return;
-            if (width_index == width_idx_to_pos_idx.size()) break;
+            if (col_index == matrix_width)
+                return;
+            if (width_index == width_idx_to_pos_idx.size())
+                break;
             current_index = width_idx_to_pos_idx[width_index++];
-            target_index = current_index.first;        
+            target_index = current_index.first;
             ins_index = current_index.second;
         }
         while (col_index != matrix_width)
         {
-            value_ptr = (uint8_t*) PyArray_GETPTR2(matrix, row, col_index++);
+            value_ptr = (uint8_t *)PyArray_GETPTR2(matrix, row, col_index++);
+            *value_ptr = PAD_CODE;
+        }
+    }
+
+    void AlignmentConverter::fill_row_from_target(PyObject *matrix, std::uint32_t window,
+                                                  std::uint32_t row)
+    {
+        uint8_t *value_ptr;
+        std::uint16_t col_index = 0;
+        std::uint32_t width_index = window * matrix_width;
+        auto current_index = width_idx_to_pos_idx[width_index++];
+        std::uint32_t target_index = current_index.first;
+        std::uint32_t ins_index = current_index.second;
+        auto& target = alignment_ptr->target;
+
+        while (col_index < matrix_width)
+        {
+            value_ptr = (uint8_t *)PyArray_GETPTR2(matrix, row, col_index++);
+            if (ins_index == 0)
+            {
+                *value_ptr = ENCODER[static_cast<std::uint8_t>(target[target_index])];
+            }
+            else
+            {
+                *value_ptr = ENCODER[static_cast<std::uint8_t>('_')];
+            }
+            if (width_index == width_idx_to_pos_idx.size())
+                break;
+            current_index = width_idx_to_pos_idx[width_index++];
+            target_index = current_index.first;
+            ins_index = current_index.second;
+        }
+        while (col_index != matrix_width)
+        {
+            value_ptr = (uint8_t *)PyArray_GETPTR2(matrix, row, col_index++);
             *value_ptr = PAD_CODE;
         }
     }
@@ -146,16 +188,22 @@ namespace align_reads
         for (std::uint32_t i = 0; i < segments_in_windows.size(); i++)
         {
             std::uint32_t num_in_window = segments_in_windows[i].size();
-            if (num_in_window == 0) continue; // if no segment falls into this window
+            if (num_in_window == 0)
+                continue; // if no segment falls into this window
             result[i].reserve(matrix_height);
             result[i].resize(num_reserved_for_target, alignment_ptr->alignment_segments.size());
-            std::uint32_t num_choices = sample_target ? alignment_ptr->alignment_segments.size() + 1 : alignment_ptr->alignment_segments.size();  
+            std::uint32_t num_choices = sample_target ? alignment_ptr->alignment_segments.size() + 1 : alignment_ptr->alignment_segments.size();
             for (std::uint32_t j = 0; j < matrix_height - num_reserved_for_target; j++)
             {
                 result[i].push_back(rand() % num_choices);
             }
         }
         return result;
+    }
+
+    void AlignmentConverter::produce_data()
+    {
+        std::vector<std::vector<std::uint32_t>> chosen = choose_segments(ROW_FOR_TARGET, SAMPLE_TARGET);
     }
 
 } // namespace align_reads

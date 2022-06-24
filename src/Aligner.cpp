@@ -92,18 +92,14 @@ namespace align_reads
 
     char AlignmentSegment::get_at_target_pos(std::uint32_t target_index, std::uint32_t ins_index)
     {
-        
+        // Nons ins positions
         if (ins_index == 0)
             return aligned_chars[target_index - start_on_target];
 
+        // Ins positions
         if (ins_index > ins_segments[target_index - start_on_target + 1].size())
         {
-            if (target_index == end_on_target)
-            {
-                return PAD_CHAR;
-            } else {
-                return GAP_CHAR;
-            }
+            return GAP_CHAR;
         }
 
         return ins_segments[target_index - start_on_target + 1][ins_index - 1];

@@ -9,6 +9,13 @@
 #define HAP1_INDEX 2
 
 /*
+ * Issues:
+ * 1. Need to ignore ins after the last target char as it can be of arbitary length for diff 
+ *    aligned sequences. -> add a test to check this
+ */
+
+
+/*
  * The 'Main' component that interacts with other components. 
  */
 

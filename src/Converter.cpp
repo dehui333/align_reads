@@ -185,14 +185,15 @@ namespace align_reads
     {
         std::vector<std::vector<std::uint32_t>> result;
         result.resize(segments_in_windows.size());
+        std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
         for (std::uint32_t i = 0; i < segments_in_windows.size(); i++)
         {
             std::uint32_t num_in_window = segments_in_windows[i].size();
             if (num_in_window == 0)
                 continue; // if no segment falls into this window
             result[i].reserve(matrix_height);
-            result[i].resize(num_reserved_for_target, alignment_ptr->alignment_segments.size());
-            std::uint32_t num_choices = sample_target ? alignment_ptr->alignment_segments.size() + 1 : alignment_ptr->alignment_segments.size();
+            result[i].resize(num_reserved_for_target, num_alignment);
+            std::uint32_t num_choices = sample_target ? num_alignment + 1 : num_alignment;
             for (std::uint32_t j = 0; j < matrix_height - num_reserved_for_target; j++)
             {
                 result[i].push_back(rand() % num_choices);
@@ -201,9 +202,64 @@ namespace align_reads
         return result;
     }
 
-    void AlignmentConverter::produce_data()
-    {
+    Data AlignmentConverter::produce_data()
+    {   
+        Data data;
+        std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
         std::vector<std::vector<std::uint32_t>> chosen = choose_segments(ROW_FOR_TARGET, SAMPLE_TARGET);
+        std::uint32_t row_idx;
+        npy_intp dims[2];
+        dims[0] = matrix_height;
+        dims[1] = matrix_width;
+        for (std::uint32_t i = 0; i < chosen.size(); i++)
+        {
+            if (chosen[i].empty()) continue;
+            auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8); 
+            row_idx = 0;
+            for (auto alignment_idx : chosen[i])
+            {
+                if (alignment_idx == num_alignment)
+                {
+                    fill_row_from_target(matrix, i, row_idx++);
+                } 
+                else 
+                {
+                    fill_row_from_alignment(matrix, i, row_idx++, alignment_idx);
+                }
+            }
+            data.Xs.push_back(matrix);
+        }
+        return data;
+    }
+
+    Data AlignmentConverter::produce_data(std::vector<std::vector<std::uint32_t>>& chosen)
+    {   
+        Data data;
+        std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
+        std::uint32_t row_idx;
+        npy_intp dims[2];
+        dims[0] = matrix_height;
+        dims[1] = matrix_width;
+        
+        for (std::uint32_t i = 0; i < chosen.size(); i++)
+        {
+            if (chosen[i].empty()) continue;
+            auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8); 
+            row_idx = 0;
+            for (auto alignment_idx : chosen[i])
+            {
+                if (alignment_idx == num_alignment)
+                {
+                    fill_row_from_target(matrix, i, row_idx++);
+                } 
+                else 
+                {
+                    fill_row_from_alignment(matrix, i, row_idx++, alignment_idx);
+                }
+            }
+            data.Xs.push_back(matrix);
+        }
+        return data;
     }
 
 } // namespace align_reads

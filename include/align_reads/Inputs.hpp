@@ -5,6 +5,10 @@
 #include "biosoup/nucleic_acid.hpp"
 #include "thread_pool/thread_pool.hpp"
 
+#define READS_INDEX 0
+#define HAP0_INDEX 1
+#define HAP1_INDEX 2
+
 /*
  *  Manages reading in of and access to input sequences.
  *  Sequences are separated into distinct groups.

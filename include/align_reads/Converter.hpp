@@ -10,9 +10,12 @@
 
 #include "align_reads/Aligner.hpp"
 
+//---->>>>>>>>>>>> produce_data_parallel fails at times.
+//---->>>> find log in log folder as back.log
+
 /*
  * Takes alignment objects and produce feature matrices.
- *
+ * - exposes inner implementation of some stuff in Aligner.
  */
 
 namespace align_reads 
@@ -24,27 +27,38 @@ namespace align_reads
         std::vector<PyObject*> Xs;
     };
 
+    // Stores Additional info about the alignment/sequences 
+    struct Info 
+    {
+        std::uint8_t hap_of_target;
+        std::vector<std::uint8_t> hap_of_aligned;
+    };
+
     class AlignmentConverter
     {
         public:
             AlignmentConverter(MultiAlignment& alignment, std::uint32_t matrix_height, std::uint32_t matrix_width);
+            AlignmentConverter(MultiAlignment& alignment, std::uint32_t matrix_height, std::uint32_t matrix_width, Info& info);
 
-            // Insert input feature matrices 
-            Data produce_data(std::shared_ptr<thread_pool::ThreadPool> &pool);
+            // input feature matrices 
+            Data produce_data(std::shared_ptr<thread_pool::ThreadPool> &pool, bool with_labels=false);
+
+            
+
+
 
         private:
             MultiAlignment* alignment_ptr;
+            Info* info_ptr;
             std::uint32_t matrix_width;
             std::uint32_t matrix_height;
             std::vector<std::pair<std::uint32_t, std::uint32_t>> width_idx_to_pos_idx;
             std::vector<std::vector<std::uint32_t>> segments_in_windows; 
-            std::vector<std::pair<std::uint32_t, std::uint32_t>> start_of_windows;
+            //std::vector<std::pair<std::uint32_t, std::uint32_t>> start_of_windows;
             
-            // may be inlined?
             void fill_row_from_alignment(PyObject* matrix, std::uint32_t window, 
-                std::uint32_t row, std::uint32_t alignment_idx);
+                std::uint32_t row, AlignmentSegment& segment);
 
-            // may be inlined?
             void fill_row_from_target(PyObject* matrix, std::uint32_t window, 
                 std::uint32_t row);
 

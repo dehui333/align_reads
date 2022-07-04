@@ -70,14 +70,14 @@ namespace align_reads
         std::uint32_t width_index = 0;
         for (i = 0; i < alignment_ptr->target.size(); i++)
         {
-            if (width_index % matrix_width == 0)
-                start_of_windows.emplace_back(i, 0); // record start of window
+            // if (width_index % matrix_width == 0)
+            //     start_of_windows.emplace_back(i, 0); // record start of window
             width_idx_to_pos_idx.emplace_back(i, 0);
             target_pos_window_index.push_back((width_index++) / matrix_width);
             for (j = 0; j < max_ins_at_pos[i]; j++)
             {
-                if (width_index % matrix_width == 0)
-                    start_of_windows.emplace_back(i, j + 1); // record start of window
+                // if (width_index % matrix_width == 0)
+                //     start_of_windows.emplace_back(i, j + 1); // record start of window
                 width_idx_to_pos_idx.emplace_back(i, j + 1);
                 ins_pos_window_index[i].push_back((width_index++) / matrix_width);
             }
@@ -95,7 +95,8 @@ namespace align_reads
             if (segment.ins_segments.back().size() > 0)
             {
                 last_window = ins_pos_window_index[segment.end_on_target][segment.ins_segments.back().size() - 1];
-            }*/
+            }
+            */
 
             for (j = first_window; j <= last_window; j++)
             {
@@ -106,13 +107,18 @@ namespace align_reads
         }
     }
 
+    AlignmentConverter::AlignmentConverter(MultiAlignment &alignment, std::uint32_t matrix_height, std::uint32_t matrix_width, Info &info)
+        : AlignmentConverter(alignment, matrix_height, matrix_width)
+    {
+        info_ptr = &info;
+    }
+
     void AlignmentConverter::fill_row_from_alignment(PyObject *matrix, std::uint32_t window,
-                                                     std::uint32_t row, std::uint32_t alignment_idx)
+                                                     std::uint32_t row, AlignmentSegment &segment)
     {
         uint8_t *value_ptr;
         std::uint16_t col_index = 0;
         std::uint32_t width_index = window * matrix_width;
-        AlignmentSegment &segment = alignment_ptr->alignment_segments[alignment_idx];
         auto current_index = width_idx_to_pos_idx[width_index++];
         std::uint32_t target_index = current_index.first;
         std::uint32_t ins_index = current_index.second;
@@ -203,10 +209,15 @@ namespace align_reads
         return result;
     }
 
-    Data AlignmentConverter::produce_data(std::shared_ptr<thread_pool::ThreadPool> &pool)
+    Data AlignmentConverter::produce_data(std::shared_ptr<thread_pool::ThreadPool> &pool, bool with_labels)
     {
         std::vector<std::vector<std::uint32_t>> chosen = choose_segments(ROWS_FOR_TARGET, SAMPLE_TARGET);
-        return produce_data(chosen, pool);
+        Data data = produce_data(chosen, pool);
+        if (with_labels) 
+        {
+            // attach label info to the struct
+        }
+        return data;
     }
 
     Data AlignmentConverter::produce_data(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
@@ -219,7 +230,7 @@ namespace align_reads
         dims[1] = matrix_width;
         std::uint32_t i = 0;
 
-        auto produce_matrix = [&](std::vector<std::uint32_t>& alignment_indices, std::uint32_t window_index)
+        auto produce_matrix = [&](std::vector<std::uint32_t> &alignment_indices, std::uint32_t window_index)
         {
             auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8);
             uint32_t row_idx = 0;
@@ -231,7 +242,7 @@ namespace align_reads
                 }
                 else
                 {
-                    this->fill_row_from_alignment(matrix, window_index, row_idx++, alignment_idx);
+                    this->fill_row_from_alignment(matrix, window_index, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
                 }
             }
             return matrix;
@@ -253,7 +264,7 @@ namespace align_reads
                     }
                     else
                     {
-                        fill_row_from_alignment(matrix, i, row_idx++, alignment_idx);
+                        fill_row_from_alignment(matrix, i, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
                     }
                 }
                 data.Xs.push_back(matrix);

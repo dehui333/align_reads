@@ -60,14 +60,6 @@ TEST(Converter, Converter_all_match)
     EXPECT_EQ(s1, a1);
     EXPECT_EQ(s2, a2);
 
-    EXPECT_EQ(converter.start_of_windows.size(), 3);
-    EXPECT_EQ(converter.start_of_windows[0].first, 0);
-    EXPECT_EQ(converter.start_of_windows[0].second, 0);
-    EXPECT_EQ(converter.start_of_windows[1].first, 4);
-    EXPECT_EQ(converter.start_of_windows[1].second, 0);
-    EXPECT_EQ(converter.start_of_windows[2].first, 8);
-    EXPECT_EQ(converter.start_of_windows[2].second, 0);
-
     t  = "TAGGCATACCGG";
     q1 = "AGGC";
     q2 = "GCAT";
@@ -91,14 +83,6 @@ TEST(Converter, Converter_all_match)
     EXPECT_EQ(s0, a0);
     EXPECT_EQ(s1, a1);
     EXPECT_EQ(s2, a2);
-
-    EXPECT_EQ(converter.start_of_windows.size(), 3);
-    EXPECT_EQ(converter.start_of_windows[0].first, 0);
-    EXPECT_EQ(converter.start_of_windows[0].second, 0);
-    EXPECT_EQ(converter.start_of_windows[1].first, 4);
-    EXPECT_EQ(converter.start_of_windows[1].second, 0);
-    EXPECT_EQ(converter.start_of_windows[2].first, 8);
-    EXPECT_EQ(converter.start_of_windows[2].second, 0);
     
 }
 
@@ -133,13 +117,6 @@ TEST(Converter, Converter_del)
     EXPECT_EQ(s1, a1);
     EXPECT_EQ(s2, a2);  
 
-    EXPECT_EQ(converter.start_of_windows.size(), 3);
-    EXPECT_EQ(converter.start_of_windows[0].first, 0);
-    EXPECT_EQ(converter.start_of_windows[0].second, 0);
-    EXPECT_EQ(converter.start_of_windows[1].first, 4);
-    EXPECT_EQ(converter.start_of_windows[1].second, 0);
-    EXPECT_EQ(converter.start_of_windows[2].first, 8);
-    EXPECT_EQ(converter.start_of_windows[2].second, 0);
 }
 
 TEST(Converter, Converter_ins)
@@ -181,15 +158,6 @@ TEST(Converter, Converter_ins)
     EXPECT_EQ(s2, a2);  
     EXPECT_EQ(s3, a3);  
 
-    EXPECT_EQ(converter.start_of_windows.size(), 4);
-    EXPECT_EQ(converter.start_of_windows[0].first, 0);
-    EXPECT_EQ(converter.start_of_windows[0].second, 0);
-    EXPECT_EQ(converter.start_of_windows[1].first, 3);
-    EXPECT_EQ(converter.start_of_windows[1].second, 0);
-    EXPECT_EQ(converter.start_of_windows[2].first, 7);
-    EXPECT_EQ(converter.start_of_windows[2].second, 0);
-    EXPECT_EQ(converter.start_of_windows[3].first, 9);
-    EXPECT_EQ(converter.start_of_windows[3].second, 1);
 
     EXPECT_EQ(converter.width_idx_to_pos_idx[0].first, 0);
     EXPECT_EQ(converter.width_idx_to_pos_idx[0].second, 0);
@@ -272,7 +240,7 @@ TEST(Converter, fill_row_from_alignment)
     
     AlignmentConverter converter {m_align, 4, 12};
     EXPECT_EQ(converter.segments_in_windows.size(), 2);;
-     
+    std::vector<AlignmentSegment>& ss = m_align.alignment_segments;
     uint8_t* value_ptr;
     npy_intp dims[2];
     dims[0] = 4;
@@ -280,13 +248,13 @@ TEST(Converter, fill_row_from_alignment)
     auto x = PyArray_SimpleNew(2, dims, NPY_UINT8); 
     auto x2 = PyArray_SimpleNew(2, dims, NPY_UINT8);
 
-    converter.fill_row_from_alignment(x, 0, 0, 0);
-    converter.fill_row_from_alignment(x, 0, 1, 1);
-    converter.fill_row_from_alignment(x, 0, 2, 2);
-    converter.fill_row_from_alignment(x, 0, 3, 3);
+    converter.fill_row_from_alignment(x, 0, 0, ss[0]);
+    converter.fill_row_from_alignment(x, 0, 1, ss[1]);
+    converter.fill_row_from_alignment(x, 0, 2, ss[2]);
+    converter.fill_row_from_alignment(x, 0, 3, ss[3]);
   
-    converter.fill_row_from_alignment(x2, 1, 1, 1);
-    converter.fill_row_from_alignment(x2, 1, 3, 3);
+    converter.fill_row_from_alignment(x2, 1, 1, ss[1]);
+    converter.fill_row_from_alignment(x2, 1, 3, ss[3]);
     
     // check first matrix first row
     value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 0);

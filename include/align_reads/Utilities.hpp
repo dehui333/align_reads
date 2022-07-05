@@ -9,12 +9,13 @@ namespace align_reads
     class Futures
     {
     public:
-        Futures<R>(std::shared_ptr<thread_pool::ThreadPool> &pool, size_t reserve=0) : pool(pool) {
+        Futures<R>(std::shared_ptr<thread_pool::ThreadPool> &pool, size_t reserve = 0) : pool(pool)
+        {
             futures.reserve(reserve);
         }
 
-        template<typename F, typename... Ts>
-        void add_inputs(F&& routine, Ts &&...params) 
+        template <typename F, typename... Ts>
+        void add_inputs(F &&routine, Ts &&...params)
         {
             futures.emplace_back(pool->Submit(routine, params...));
         }
@@ -22,12 +23,21 @@ namespace align_reads
         {
             std::vector<R> results;
             results.reserve(futures.size());
-            for (auto& f : futures)
+            for (auto &f : futures)
             {
                 results.push_back(f.get());
             }
             futures.clear();
             return results;
+        }
+
+        void finish()
+        {
+            for (auto &f : futures)
+            {
+                f.get();
+            }
+            futures.clear();
         }
 
     private:

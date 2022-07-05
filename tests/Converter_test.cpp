@@ -679,6 +679,7 @@ TEST(Converter, produce_data_parallel)
     chosen.resize(2);
     chosen[0] = {0, 1, 2, 3};
     chosen[1] = {1, 4, 4, 3};
+    //std::shared_ptr<thread_pool::ThreadPool> n_pool = nullptr;
     Data data = converter.produce_data(chosen, pool);
     EXPECT_EQ(data.Xs.size(), 2);
     auto x = data.Xs[0];
@@ -709,7 +710,7 @@ TEST(Converter, produce_data_parallel)
     EXPECT_EQ(*value_ptr, PAD_CODE);
     value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 11);
     EXPECT_EQ(*value_ptr, PAD_CODE);
-
+    
     // check first matrix fourth row
     value_ptr = (uint8_t*) PyArray_GETPTR2(x, 3, 0);
     EXPECT_EQ(*value_ptr, ENCODER['T']);

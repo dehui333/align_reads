@@ -101,6 +101,11 @@ namespace align_reads
         return ins_segments[target_index - start_on_target + 1][ins_index - 1];
     }
 
+    AlignmentSegment::AlignmentIterator AlignmentSegment::iterator(std::uint32_t start_t_idx, std::uint32_t start_i_idx)
+    {
+        return {*this, start_t_idx, start_i_idx};
+    }
+
     void AlignmentSegment::print(std::string &target)
     {
         // find out the 'width' - the total number of columns

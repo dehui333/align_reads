@@ -4,6 +4,7 @@
 #define private public
 #include "../src/AlignmentSegment.cpp"
 #include "../src/Aligner.cpp"
+#include "../src/MultiAlignment.cpp"
 
 
 extern std::shared_ptr<thread_pool::ThreadPool> pool;

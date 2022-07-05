@@ -98,6 +98,7 @@ namespace align_reads
         // q_start/t_start are offsets from the start of query/target
         // when aligning with edlib. Result should contain path.
         // Frees(consumes) the edlib result.
+        // The target string should be the whole sequence while the query can be clipped.
         AlignmentSegment(std::string &query, std::uint32_t q_start,
                          std::string &target, std::uint32_t t_start, EdlibAlignResult &result);
 

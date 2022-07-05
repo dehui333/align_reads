@@ -13,9 +13,16 @@
 #define EDLIB_MODE_PREFIX EDLIB_MODE_SHW
 #define EDLIB_MODE_INFIX EDLIB_MODE_HW
 
+
+
+
+// !!!!!!!!! biosoup::Nucleic_acid's ReverseAndComplement() changes the
+// state of the sequence object and is not thread safe?!
+
+
 /*
  * Takes care of alignment operations.
- *  -----> todo: split this file.
+ *
  *  - Gives friend access to Converter.
  */
 
@@ -34,6 +41,19 @@ namespace align_reads
         EdlibTask(const char *q_start, std::uint32_t q_len, const char *t_start, std::uint32_t t_len,
                   EdlibAlignMode mode, EdlibAlignTask task)
             : query_start(q_start), target_start(t_start), query_len(q_len), target_len(t_len), mode(mode), task(task) {}
+    };
+
+    // Gives info on which segments of the query and target are aligned
+    template <typename R>
+    struct clipped_alignment
+    {
+        std::string clipped_query;
+        std::uint32_t q_start;
+        std::uint32_t q_end; // ends are inclusive
+        std::uint32_t t_start;
+        std::uint32_t t_end;
+        R result;
+
     };
 
 

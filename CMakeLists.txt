@@ -69,6 +69,8 @@ add_library(align_reads STATIC edlib/src/edlib.cpp src/Inputs.cpp src/Overlapper
   src/Generator.cpp
   src/Aligner.cpp
   src/Converter.cpp
+  src/AlignmentSegment.cpp
+  src/MultiAlignment.cpp
   )
 
 # python library
@@ -106,6 +108,7 @@ add_executable(
   tests/Aligner_test.cpp
   tests/Utilities_test.cpp
   tests/Converter_test.cpp
+  tests/AlignmentSegment_test.cpp
 )
 target_link_libraries(
   tests

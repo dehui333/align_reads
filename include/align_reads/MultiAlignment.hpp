@@ -1,6 +1,8 @@
 #ifndef ALIGN_READS_MULTIALIGNMENT_HPP_
 #define ALIGN_READS_MULTIALIGNMENT_HPP_
 
+#include "align_reads/AlignmentSegment.hpp"
+
 namespace align_reads
 {
 

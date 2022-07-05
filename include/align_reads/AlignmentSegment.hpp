@@ -1,6 +1,9 @@
 #ifndef ALIGN_READS_ALIGNMENTSEGMENT_HPP_
 #define ALIGN_READS_ALIGNMENTSEGMENT_HPP_
 
+#include <string>
+#include <vector>
+
 #include "edlib.h"
 
 namespace align_reads

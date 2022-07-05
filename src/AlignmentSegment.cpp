@@ -1,3 +1,4 @@
+#include <cassert>
 
 #include "align_reads/AlignmentSegment.hpp"
 

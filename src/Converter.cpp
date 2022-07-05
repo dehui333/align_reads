@@ -224,64 +224,68 @@ namespace align_reads
     {
         Data data;
         std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
-        std::uint32_t row_idx;
         npy_intp dims[2];
         dims[0] = matrix_height;
         dims[1] = matrix_width;
         std::uint32_t i = 0;
-
-        auto produce_matrix = [&](std::vector<std::uint32_t> &alignment_indices, std::uint32_t window_index)
+        std::uint32_t m_idx = 0;
+        // ---> I think PyArray_SimpleNew cannot have multiple called in parallel!!!
+        data.Xs.reserve(chosen.size());
+        for (auto& list : chosen)
         {
-            auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8);
+            if (!list.empty()) data.Xs.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
+        }
+
+        auto produce_matrix = [&](std::vector<std::uint32_t> &alignment_indices, std::uint32_t window_index, std::uint32_t matrix_idx)
+        {
             uint32_t row_idx = 0;
             for (auto alignment_idx : alignment_indices)
             {
                 if (alignment_idx == num_alignment)
                 {
-                    this->fill_row_from_target(matrix, window_index, row_idx++);
+                    this->fill_row_from_target(data.Xs[matrix_idx], window_index, row_idx++);
                 }
                 else
                 {
-                    this->fill_row_from_alignment(matrix, window_index, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
+                    this->fill_row_from_alignment(data.Xs[matrix_idx], window_index, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
                 }
             }
-            return matrix;
+            
         };
 
         if (pool == nullptr)
         {
+            std::uint32_t row_idx = 0;
             for (; i < chosen.size(); i++)
             {
                 if (chosen[i].empty())
                     continue;
-                auto matrix = PyArray_SimpleNew(2, dims, NPY_UINT8);
                 row_idx = 0;
                 for (auto alignment_idx : chosen[i])
                 {
                     if (alignment_idx == num_alignment)
                     {
-                        fill_row_from_target(matrix, i, row_idx++);
+                        fill_row_from_target(data.Xs[m_idx], i, row_idx++);
                     }
                     else
                     {
-                        fill_row_from_alignment(matrix, i, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
+                        fill_row_from_alignment(data.Xs[m_idx], i, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
                     }
                 }
-                data.Xs.push_back(matrix);
+                m_idx++;
             }
         }
         else
         {
-            Futures<PyObject *> futures(pool, chosen.size());
+            Futures<void> futures(pool, chosen.size());
 
             for (; i < chosen.size(); i++)
             {
                 if (chosen[i].empty())
                     continue;
-                futures.add_inputs(produce_matrix, chosen[i], i);
+                futures.add_inputs(produce_matrix, chosen[i], i, m_idx++);
             }
-            auto results = futures.get();
-            data.Xs.insert(data.Xs.end(), results.begin(), results.end());
+            futures.finish();
         }
 
         return data;

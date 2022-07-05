@@ -2,7 +2,9 @@
 
 #include "align_reads/Utilities.hpp"
 #define private public
+#include "../src/AlignmentSegment.cpp"
 #include "../src/Aligner.cpp"
+
 
 extern std::shared_ptr<thread_pool::ThreadPool> pool;
 

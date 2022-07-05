@@ -314,4 +314,24 @@ TEST(AlignmentSegment, iterator)
     EXPECT_FALSE(iter2.has_next());
     
 }
+
+TEST(AlignmentSegment, print)
+{
+    std::string t  = "TAGGCATACAGG";
+    std::string q1 = "TAGTG";
+    std::string q2 = "CAACATGGAAAA";
+    std::string q3 = "TGGCATATCA";
+    // TAG_|GCAT|A_CA|_GG
+
+    Futures<AlignmentSegment> futures(pool, 3);
+    futures.add_inputs(get_alignment_segment, q1, 0, 5, t, 0, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q2, 0, 8, t, 4, 8, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q3, 0, 10, t, 0, 12, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    std::vector<AlignmentSegment> segments = futures.get();
+    segments[0].print(t);
+    segments[1].print(t);
+    segments[2].print(t);
+
+
+}
  

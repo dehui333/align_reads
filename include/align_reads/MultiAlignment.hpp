@@ -3,6 +3,9 @@
 
 #include "align_reads/AlignmentSegment.hpp"
 
+// ** Maybe can have iterator over each segment under the context of all the segments
+// - will include positions where some segments have gaps and some have non gap chars.
+
 namespace align_reads
 {
 

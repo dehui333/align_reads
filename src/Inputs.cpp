@@ -177,6 +177,7 @@ namespace align_reads
     std::unique_ptr<biosoup::NucleicAcid> &Inputs::get_id_in_group(std::uint32_t group_id,
                                                                    std::uint32_t sequence_id)
     {
+        if (indices_of_groups[group_id].empty()) return groups_of_sequences[group_id][sequence_id];
         auto pos_index = indices_of_groups[group_id][sequence_id];
         return groups_of_sequences[group_id][pos_index];
     }

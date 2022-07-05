@@ -4,10 +4,12 @@
 #define private public
 #include "align_reads/AlignmentSegment.hpp"
 #include "../src/Aligner.cpp"
+#include "align_reads/Inputs.hpp"
 #include "align_reads/MultiAlignment.hpp"
-
+#include "align_reads/Overlapper.hpp"
 
 extern std::shared_ptr<thread_pool::ThreadPool> pool;
+const char *reads0_path = "../test_data/fake_reads0.fasta";
 
 using namespace align_reads;
 
@@ -44,4 +46,25 @@ TEST(Aligner, Futures)
     EXPECT_EQ(results[0].editDistance, 0);
     EXPECT_EQ(results[1].editDistance, 2);
     EXPECT_EQ(results[2].editDistance, 0);
+}
+
+TEST(Aligner, align_overlap)
+{
+    
+    biosoup::NucleicAcid::num_objects = 0;
+    std::vector<std::string> paths = {reads0_path};
+    align_reads::Inputs inputs(1);
+    inputs.append_to_group(0, paths, pool);
+    Overlapper ovl {1, pool};
+    ovl.index_sequences(inputs.get_group(0), 0);
+    auto& target = inputs.get_id_in_group(0, 0);
+    auto overlaps = ovl.find_overlaps(target, 0);
+    std::string target_string = target->InflateData();
+    auto result = align_overlap(overlaps[0], inputs, target_string);
+    auto alignment = AlignmentSegment(result.clipped_query, 0, target_string, result.t_start, result.result);
+    alignment.print(target_string);
+
+
+    
+
 }

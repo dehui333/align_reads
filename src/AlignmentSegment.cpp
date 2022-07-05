@@ -1,4 +1,5 @@
 #include <cassert>
+#include <iostream>
 
 #include "align_reads/AlignmentSegment.hpp"
 
@@ -122,6 +123,38 @@ namespace align_reads
         // One chunk from the target + one chunk from the aligned will form one block
         std::vector<std::string> chunks;
         chunks.resize(number_of_blocks * 2);
+        for (auto &s : chunks)
+        {
+            s.reserve(block_size);
+        }
+
+        // Fill up the blocks
+        std::uint32_t width_idx = 0;
+        auto iter = this->iterator(this->start_on_target, 0);
+        std::vector<std::pair<std::uint32_t, std::uint32_t>> start_of_blocks; // Record positions
+        start_of_blocks.reserve(number_of_blocks);
+        std::uint32_t block_idx = 0;
+        while (iter.has_next())
+        {
+            block_idx = width_idx / block_size;
+            auto pos = iter.next();
+            char target_char = pos.ins_index == 0 ? target[pos.target_index] : GAP_CHAR;
+            chunks[block_idx * 2].push_back(target_char);
+            chunks[block_idx * 2 + 1].push_back(pos.c);
+            if (width_idx % block_size == 0)
+                start_of_blocks.emplace_back(pos.target_index, pos.ins_index);
+            width_idx++;
+        }
+
+        for (block_idx = 0; block_idx < number_of_blocks; block_idx++)
+        {
+            std::cout << "Block: " << block_idx << std::endl;
+            auto start = start_of_blocks[block_idx];
+            std::cout << "Start index: " << start.first << ", " << start.second << std::endl;
+            std::cout << chunks[block_idx * 2] << std::endl;
+            std::cout << chunks[block_idx * 2 + 1] << std::endl
+                      << std::endl;
+        }
     }
 
 }

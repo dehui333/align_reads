@@ -36,9 +36,10 @@ namespace align_reads
 
         // return reference to the sequence with the specified id in the specified group
         // requires group to be indexed.
+        // If not indexed, the sequence_id-th sequence in the group will be returned, 
+        // which will be correct if they are ordered by sequence id.
         std::unique_ptr<biosoup::NucleicAcid> &get_id_in_group(std::uint32_t group_id,
                                                                std::uint32_t sequence_id);
-
     private:
         std::vector<std::vector<std::unique_ptr<biosoup::NucleicAcid>>> groups_of_sequences;
         std::vector<std::vector<std::uint32_t>> indices_of_groups;

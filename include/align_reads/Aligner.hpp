@@ -7,6 +7,7 @@
 
 #include "align_reads/AlignmentSegment.hpp"
 #include "align_reads/Inputs.hpp"
+#include "align_reads/MultiAlignment.hpp"
 
 #define EDLIB_MODE_GLOBAL EDLIB_MODE_NW
 #define EDLIB_MODE_PREFIX EDLIB_MODE_SHW
@@ -35,23 +36,6 @@ namespace align_reads
             : query_start(q_start), target_start(t_start), query_len(q_len), target_len(t_len), mode(mode), task(task) {}
     };
 
-    // Stores info on how a set of sequences align to a single target.
-    class MultiAlignment
-    {
-    public:
-        MultiAlignment(std::string &target, std::vector<AlignmentSegment> &segments);
-        // steals content of inputs
-        MultiAlignment(std::string &&target, std::vector<AlignmentSegment> &&segments);
-
-        MultiAlignment(std::string &&target, std::vector<AlignmentSegment> &&segments, std::vector<AlignmentSegment> &&truth);
-
-    private:
-        std::string target; // The target sequence
-        std::vector<AlignmentSegment> alignment_segments;
-        std::vector<AlignmentSegment> truth_to_target;
-
-        friend class AlignmentConverter;
-    };
 
     // Process multiple edlib tasks, possibly in parallel
     std::vector<EdlibAlignResult> get_edlib_results(std::vector<EdlibTask> &tasks, std::shared_ptr<thread_pool::ThreadPool> &pool);

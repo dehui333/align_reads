@@ -119,10 +119,26 @@ class NucleicAcid {
     return ((deflated_data[i >> 5] >> ((i << 1) & 63)) & 3) ^ x;
   }
 
+  std::uint64_t CodeReverse(std::uint32_t i) const {
+    std::uint64_t x = 0;
+    
+    i = inflated_len - i - 1;
+    x = 3;
+    
+    return ((deflated_data[i >> 5] >> ((i << 1) & 63)) & 3) ^ x;
+  }
+
   std::uint8_t Score(std::uint32_t i) const {
     if (is_reverse_complement) {
       i = inflated_len - i - 1;
     }
+    return block_quality[i >> 6];
+  }
+
+  std::uint8_t ScoreReverse(std::uint32_t i) const {
+    
+    i = inflated_len - i - 1;
+    
     return block_quality[i >> 6];
   }
 
@@ -140,6 +156,20 @@ class NucleicAcid {
     return dst;
   }
 
+  std::string InflateDataReverse(std::uint32_t i = 0, std::uint32_t len = -1) const {
+    if (i >= inflated_len) {
+      return std::string{};
+    }
+    len = std::min(len, inflated_len - i);
+
+    std::string dst{};
+    dst.reserve(len);
+    for (; len; ++i, --len) {
+      dst += kNucleotideDecoder[CodeReverse(i)];
+    }
+    return dst;
+  }
+
   std::string InflateQuality(std::uint32_t i = 0, std::uint32_t len = -1) const {  // NOLINT
     if (block_quality.empty() || i >= inflated_len) {
       return std::string{};
@@ -150,6 +180,20 @@ class NucleicAcid {
     dst.reserve(len);
     for (; len; ++i, --len) {
       dst += Score(i) + '!';
+    }
+    return dst;
+  }
+
+  std::string InflateQualityReverse(std::uint32_t i = 0, std::uint32_t len = -1) const {  // NOLINT
+    if (block_quality.empty() || i >= inflated_len) {
+      return std::string{};
+    }
+    len = std::min(len, inflated_len - i);
+
+    std::string dst{};
+    dst.reserve(len);
+    for (; len; ++i, --len) {
+      dst += ScoreReverse(i) + '!';
     }
     return dst;
   }

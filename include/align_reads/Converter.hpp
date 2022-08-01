@@ -10,8 +10,6 @@
 
 #include "align_reads/Aligner.hpp"
 
-//---->>>>>>>>>>>> produce_data_parallel fails at times.
-//---->>>> find log in log folder as back.log
 
 /*
  * Takes alignment objects and produce feature matrices.
@@ -34,6 +32,7 @@ namespace align_reads
         std::vector<std::uint8_t> hap_of_aligned;
     };
 
+    // An 'adaptor' over a MultiAlginment object to produce feature matrices from it
     class AlignmentConverter
     {
         public:
@@ -52,21 +51,30 @@ namespace align_reads
             Info* info_ptr;
             std::uint32_t matrix_width;
             std::uint32_t matrix_height;
+            // a mapping from 'width index' to 'pos index'
+            // width index: the column indices along the width of the alignment
+            // pos index: An index which takes into account which position is aligned
+            // to an existing base on the target and which are insertions etc
             std::vector<std::pair<std::uint32_t, std::uint32_t>> width_idx_to_pos_idx;
+
+            // specifies which segments falls into which of the windows
             std::vector<std::vector<std::uint32_t>> segments_in_windows; 
             //std::vector<std::pair<std::uint32_t, std::uint32_t>> start_of_windows;
             
+            // Fill a row of the matrix with bases from the aligned segment.
+            // The 'window' parameter determines which part of the segment is taken.
             void fill_row_from_alignment(PyObject* matrix, std::uint32_t window, 
                 std::uint32_t row, AlignmentSegment& segment);
 
+            // Fill from the alignement target.
             void fill_row_from_target(PyObject* matrix, std::uint32_t window, 
                 std::uint32_t row);
 
             // Choose which segments to put into rows of each matrix, where they are 0 indexed.
-            // Index 'number of alignments' will refer to fill the row with the target. 
+            // The output will specify the chosen segments to fill the matrices for each window.
             std::vector<std::vector<std::uint32_t>> choose_segments(std::uint32_t num_reserved_for_target, bool sample_target);
 
-            // for testing
+            // -------->to convert to 'produce alignment matrices'
             Data produce_data(std::vector<std::vector<std::uint32_t>>& chosen, std::shared_ptr<thread_pool::ThreadPool> &pool);
 
             

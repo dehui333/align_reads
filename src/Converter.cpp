@@ -7,8 +7,8 @@
 #define PAD_CODE 5
 #define PAD_CHAR '*' // Also defined in Aligner.cpp
 
-#define ROWS_FOR_TARGET 0
-#define SAMPLE_TARGET true
+#define ROWS_FOR_TARGET 0 // Reserve this number of rows for the target seq in each matrix
+#define SAMPLE_TARGET true // Do we sample the target seq too when filling matrix?
 
 namespace align_reads
 {
@@ -34,6 +34,7 @@ namespace align_reads
                                            std::uint32_t matrix_height, std::uint32_t matrix_width)
         : alignment_ptr(&alignment), matrix_width(matrix_width), matrix_height(matrix_height)
     {
+        info_ptr = nullptr;
         std::uint32_t i = 0;
         std::uint32_t j = 0;
         // record the highest number of ins at each target pos
@@ -220,6 +221,7 @@ namespace align_reads
         return data;
     }
 
+    // ----> todo: convert to produce alignment matrices
     Data AlignmentConverter::produce_data(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
         Data data;

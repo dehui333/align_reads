@@ -213,7 +213,8 @@ namespace align_reads
     Data AlignmentConverter::produce_data(std::shared_ptr<thread_pool::ThreadPool> &pool, bool with_labels)
     {
         std::vector<std::vector<std::uint32_t>> chosen = choose_segments(ROWS_FOR_TARGET, SAMPLE_TARGET);
-        Data data = produce_data(chosen, pool);
+        Data data;
+        data.Xs = produce_alignment_matrices(chosen, pool);
         if (with_labels) 
         {
             // attach label info to the struct
@@ -222,20 +223,20 @@ namespace align_reads
     }
 
     // ----> todo: convert to produce alignment matrices
-    Data AlignmentConverter::produce_data(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
+    std::vector<PyObject*> AlignmentConverter::produce_alignment_matrices(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
-        Data data;
         std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
         npy_intp dims[2];
         dims[0] = matrix_height;
         dims[1] = matrix_width;
         std::uint32_t i = 0;
         std::uint32_t m_idx = 0;
+        std::vector<PyObject*> Xs;
         // ---> I think PyArray_SimpleNew cannot have multiple called in parallel!!!
-        data.Xs.reserve(chosen.size());
+        Xs.reserve(chosen.size());
         for (auto& list : chosen)
         {
-            if (!list.empty()) data.Xs.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
+            if (!list.empty()) Xs.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
         }
 
         auto produce_matrix = [&](std::vector<std::uint32_t> &alignment_indices, std::uint32_t window_index, std::uint32_t matrix_idx)
@@ -245,11 +246,11 @@ namespace align_reads
             {
                 if (alignment_idx == num_alignment)
                 {
-                    this->fill_row_from_target(data.Xs[matrix_idx], window_index, row_idx++);
+                    this->fill_row_from_target(Xs[matrix_idx], window_index, row_idx++);
                 }
                 else
                 {
-                    this->fill_row_from_alignment(data.Xs[matrix_idx], window_index, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
+                    this->fill_row_from_alignment(Xs[matrix_idx], window_index, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
                 }
             }
             
@@ -267,11 +268,11 @@ namespace align_reads
                 {
                     if (alignment_idx == num_alignment)
                     {
-                        fill_row_from_target(data.Xs[m_idx], i, row_idx++);
+                        fill_row_from_target(Xs[m_idx], i, row_idx++);
                     }
                     else
                     {
-                        fill_row_from_alignment(data.Xs[m_idx], i, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
+                        fill_row_from_alignment(Xs[m_idx], i, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
                     }
                 }
                 m_idx++;
@@ -290,7 +291,7 @@ namespace align_reads
             futures.finish();
         }
 
-        return data;
+        return Xs;
     }
 
 } // namespace align_reads

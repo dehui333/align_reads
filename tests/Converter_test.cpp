@@ -538,7 +538,7 @@ TEST(Converter, fill_row_from_target)
     EXPECT_EQ(*value_ptr, PAD_CODE);
 }
 
-TEST(Converter, produce_data)
+TEST(Converter, produce_alignment_matrices)
 {
     PyInit_align_reads_gen();  
     std::string t  = "TAGGCATACAGG";
@@ -567,10 +567,10 @@ TEST(Converter, produce_data)
     chosen[0] = {0, 1, 2, 3};
     chosen[1] = {1, 4, 4, 3};
     std::shared_ptr<thread_pool::ThreadPool> null_pool = nullptr;
-    Data data = converter.produce_data(chosen, null_pool);
-    EXPECT_EQ(data.Xs.size(), 2);
-    auto x = data.Xs[0];
-    auto x2 = data.Xs[1];
+    auto Xs = converter.produce_alignment_matrices(chosen, null_pool);
+    EXPECT_EQ(Xs.size(), 2);
+    auto x = Xs[0];
+    auto x2 = Xs[1];
     uint8_t* value_ptr;
     // check first matrix first row
     value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 0);
@@ -651,7 +651,7 @@ TEST(Converter, produce_data)
     EXPECT_EQ(*value_ptr, PAD_CODE); 
 }
 
-TEST(Converter, produce_data_parallel)
+TEST(Converter, produce_alignment_matrices_parallel)
 {
     PyInit_align_reads_gen();  
     std::string t  = "TAGGCATACAGG";
@@ -680,10 +680,10 @@ TEST(Converter, produce_data_parallel)
     chosen[0] = {0, 1, 2, 3};
     chosen[1] = {1, 4, 4, 3};
     //std::shared_ptr<thread_pool::ThreadPool> n_pool = nullptr;
-    Data data = converter.produce_data(chosen, pool);
-    EXPECT_EQ(data.Xs.size(), 2);
-    auto x = data.Xs[0];
-    auto x2 = data.Xs[1];
+    auto Xs = converter.produce_alignment_matrices(chosen, pool);
+    EXPECT_EQ(Xs.size(), 2);
+    auto x = Xs[0];
+    auto x2 = Xs[1];
     uint8_t* value_ptr;
     // check first matrix first row
     value_ptr = (uint8_t*) PyArray_GETPTR2(x, 0, 0);

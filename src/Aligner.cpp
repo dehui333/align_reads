@@ -128,6 +128,7 @@ namespace align_reads
         return to_return;
     }
 
+    /*
     std::vector<clipped_alignment<EdlibAlignResult>> align_overlaps(std::vector<biosoup::Overlap> &overlaps, std::uint16_t num)
     {
         Futures<clipped_alignment<EdlibAlignResult>> futures;
@@ -137,6 +138,6 @@ namespace align_reads
                 break;
             auto &o = overlaps.back();
         }
-    }
+    }*/
 
 } // namespace align_reads

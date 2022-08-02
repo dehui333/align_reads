@@ -57,7 +57,9 @@ namespace align_reads
     }
 
     // align the rhs to the lhs
-    clipped_alignment<EdlibAlignResult> align_overlap(biosoup::Overlap &o, align_reads::Inputs &inputs, std::string &target)
+    // todo: change arguments to values 
+    // todo: use reverse strand without changing state
+    clipped_alignment<EdlibAlignResult> align_overlap(biosoup::Overlap o, align_reads::Inputs* inputs, const char* target_string, std::uint32_t target_len)
     {
         clipped_alignment<EdlibAlignResult> to_return;
         // Get the overlapping segment start and end
@@ -67,13 +69,12 @@ namespace align_reads
         std::uint32_t q_end = o.rhs_end;
 
         // Get the query sequence
-        auto &query = inputs.get_id_in_group(READS_GROUP, o.rhs_id);
+        auto &query = inputs->get_id_in_group(READS_GROUP, o.rhs_id);
 
         // If the coordinates for q are for the reverse-complement,
         // find the right coordinates for the original strand.
         if (!o.strand)
         {
-            query->ReverseAndComplement();
             q_end = query->inflated_len - o.rhs_begin;
             q_begin = query->inflated_len - o.rhs_end;
         }
@@ -81,7 +82,7 @@ namespace align_reads
         // How much does q extend beyond the ends of t
         // when the overlapping segments are aligned.
         int protrude_left = q_begin - t_begin;
-        int protrude_right = (query->inflated_len - q_end) - (target.size() - t_end);
+        int protrude_right = (query->inflated_len - q_end) - (target_len - t_end);
 
         // How much (approximately) to clip off each sequence so that only the overlapping segments
         // are left.
@@ -110,34 +111,42 @@ namespace align_reads
             t_clip_right = -protrude_right;
         }
         auto q_len = query->inflated_len - q_clip_left - q_clip_right;
-        auto t_len = target.size() - t_clip_left - t_clip_right;
-        std::string query_segment = query->InflateData(q_clip_left, q_len);
+        auto t_len = target_len - t_clip_left - t_clip_right;
+        std::string query_segment;
+        if (!o.strand) 
+        {
+            query_segment = query->InflateDataReverse(q_clip_left, q_len);
+        } else 
+        {
+            query_segment = query->InflateData(q_clip_left, q_len);
+        }
         to_return.q_start = q_clip_left;
         to_return.q_end = q_clip_left + q_len - 1;
         to_return.t_start = t_clip_left;
         to_return.t_end = t_clip_left + t_len - 1;
-        if (!o.strand)
-        {
-            query->ReverseAndComplement();
-        }
+        
 
         to_return.result = get_edlib_result_(query_segment.c_str(), q_len,
-                                             target.c_str() + t_clip_left, t_len,
+                                             target_string + t_clip_left, t_len,
                                              EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
         to_return.clipped_query = std::move(query_segment);
         return to_return;
     }
 
     /*
-    std::vector<clipped_alignment<EdlibAlignResult>> align_overlaps(std::vector<biosoup::Overlap> &overlaps, std::uint16_t num)
+    std::vector<clipped_alignment<EdlibAlignResult>> align_overlaps(std::vector<biosoup::Overlap> &overlaps, std::uint16_t num, align_reads::Inputs &inputs, std::string &target, std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
-        Futures<clipped_alignment<EdlibAlignResult>> futures;
+        Futures<clipped_alignment<EdlibAlignResult>> futures{pool, num};
         for (auto i = 0; i < num; i++)
         {
             if (overlaps.empty())
                 break;
-            auto &o = overlaps.back();
+            auto o = overlaps.back();
+            overlaps.pop_back();
+            futures.add_inputs(align_overlap, o, inputs, target);
         }
+        return futures.get();
+
     }*/
 
 } // namespace align_reads

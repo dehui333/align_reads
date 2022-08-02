@@ -26,6 +26,7 @@ extern std::shared_ptr<thread_pool::ThreadPool> pool;
 PyMODINIT_FUNC PyInit_align_reads_gen(void) {
     Py_Initialize();
     import_array();
+    return 0;
 }
 
 TEST(Converter, Converter_all_match)

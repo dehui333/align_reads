@@ -974,12 +974,17 @@ Data Aligner::align_overlapping_result::produce_data(bool produce_labels, std::u
     std::uint8_t offset = produce_labels ? 2 : 0; // to exclude haplotype sequences
 
     for (std::uint32_t window_index = 0; window_index < num_windows; window_index++) {
-
+/*
+            // fill 1st row of matrix with target
+                     
+            fill_X_from_target(x, window_index, 0);
+=======
         // find the reads that can be placed into this window/matrix
         std::vector<std::uint32_t> &eligible_reads = window_to_reads[window_index];
         std::sort(eligible_reads.begin(), eligible_reads.end());
         std::uint16_t num_choices = eligible_reads.size() < offset ? 0 : eligible_reads.size() - offset;
         if (num_choices == 0) continue;
+*/
 
         // fill 1st row of matrix with target
         auto x = PyArray_SimpleNew(2, dims, NPY_UINT8);

@@ -57,9 +57,7 @@ namespace align_reads
     }
 
     // align the rhs to the lhs
-    // todo: change arguments to values 
-    // todo: use reverse strand without changing state
-    clipped_alignment<EdlibAlignResult> align_overlap(biosoup::Overlap o, align_reads::Inputs* inputs, const char* target_string, std::uint32_t target_len)
+    clipped_alignment<EdlibAlignResult> align_overlap(biosoup::Overlap o, align_reads::Inputs *inputs, const char *target_string, std::uint32_t target_len)
     {
         clipped_alignment<EdlibAlignResult> to_return;
         // Get the overlapping segment start and end
@@ -113,10 +111,11 @@ namespace align_reads
         auto q_len = query->inflated_len - q_clip_left - q_clip_right;
         auto t_len = target_len - t_clip_left - t_clip_right;
         std::string query_segment;
-        if (!o.strand) 
+        if (!o.strand)
         {
             query_segment = query->InflateDataReverse(q_clip_left, q_len);
-        } else 
+        }
+        else
         {
             query_segment = query->InflateData(q_clip_left, q_len);
         }
@@ -124,7 +123,6 @@ namespace align_reads
         to_return.q_end = q_clip_left + q_len - 1;
         to_return.t_start = t_clip_left;
         to_return.t_end = t_clip_left + t_len - 1;
-        
 
         to_return.result = get_edlib_result_(query_segment.c_str(), q_len,
                                              target_string + t_clip_left, t_len,
@@ -133,20 +131,35 @@ namespace align_reads
         return to_return;
     }
 
-    /*
     std::vector<clipped_alignment<EdlibAlignResult>> align_overlaps(std::vector<biosoup::Overlap> &overlaps, std::uint16_t num, align_reads::Inputs &inputs, std::string &target, std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
-        Futures<clipped_alignment<EdlibAlignResult>> futures{pool, num};
-        for (auto i = 0; i < num; i++)
+        if (pool == nullptr)
         {
-            if (overlaps.empty())
-                break;
-            auto o = overlaps.back();
-            overlaps.pop_back();
-            futures.add_inputs(align_overlap, o, inputs, target);
+            std::vector<clipped_alignment<EdlibAlignResult>> output;
+            output.reserve(num);
+            for (auto i = 0; i < num; i++)
+            {
+                if (overlaps.empty())
+                    break;
+                auto o = overlaps.back();
+                overlaps.pop_back();
+                output.push_back(align_overlap(o, &inputs, target.c_str(), target.size()));
+            }
+            return output;
         }
-        return futures.get();
-
-    }*/
+        else
+        {
+            Futures<clipped_alignment<EdlibAlignResult>> futures{pool, num};
+            for (auto i = 0; i < num; i++)
+            {
+                if (overlaps.empty())
+                    break;
+                auto o = overlaps.back();
+                overlaps.pop_back();
+                futures.add_inputs(align_overlap, o, &inputs, target.c_str(), target.size());
+            }
+            return futures.get();
+        }
+    }
 
 } // namespace align_reads

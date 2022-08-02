@@ -27,7 +27,7 @@ TEST(Overlapper, class_Overlapper)
     auto ov2 = finder.find_overlaps(seq, 1);
     EXPECT_GT(ov2.size(), ov1.size());
 }
-
+/*
 TEST(Overlapper, find_from_real)
 {
     std::vector<std::string> paths = {"../ignored/reads/drosophila-f1-100k.fastq"};
@@ -42,4 +42,4 @@ TEST(Overlapper, find_from_real)
 
     std::cout << "num " << ov.size() << std::endl;
 
-}
+}*/

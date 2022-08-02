@@ -8,6 +8,7 @@
 
 namespace align_reads
 {
+    // contains an aligned char and its index.
     struct aligned_pos
     {
         char c;
@@ -30,7 +31,6 @@ namespace align_reads
     class AlignmentSegment
     {
     public:
-        // untested
         class AlignmentIterator
         {
         public:

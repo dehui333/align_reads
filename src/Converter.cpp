@@ -222,7 +222,6 @@ namespace align_reads
         return data;
     }
 
-    // ----> todo: convert to produce alignment matrices
     std::vector<PyObject*> AlignmentConverter::produce_alignment_matrices(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
         std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();

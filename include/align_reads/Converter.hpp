@@ -74,7 +74,7 @@ namespace align_reads
             // The output will specify the chosen segments to fill the matrices for each window.
             std::vector<std::vector<std::uint32_t>> choose_segments(std::uint32_t num_reserved_for_target, bool sample_target);
 
-            // -------->to convert to 'produce alignment matrices'
+            // Produce matrices which consist of alignments of sequences aligned to the targert
             std::vector<PyObject*> produce_alignment_matrices(std::vector<std::vector<std::uint32_t>>& chosen, std::shared_ptr<thread_pool::ThreadPool> &pool);
 
             

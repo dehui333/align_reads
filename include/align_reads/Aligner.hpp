@@ -66,7 +66,7 @@ namespace align_reads
 
     // align some number of overlapping segments.
     // will remove the aligned ones from the container.
-    std::vector<EdlibAlignResult> align_overlaps(std::vector<biosoup::Overlap> &overlaps, std::uint16_t num);
+    std::vector<clipped_alignment<EdlibAlignResult>> align_overlaps(std::vector<biosoup::Overlap> &overlaps, std::uint16_t num, align_reads::Inputs &inputs, std::string &target);
 
     // Integrates alignment, straightaway gives alignment_segment
     AlignmentSegment get_alignment_segment(std::string &query, std::uint32_t q_start, std::uint32_t q_len,

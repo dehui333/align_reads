@@ -10,6 +10,7 @@
 
 extern std::shared_ptr<thread_pool::ThreadPool> pool;
 const char *reads0_path = "../test_data/fake_reads0.fasta";
+const char *align_reverse_path = "../test_data/align_reverse.fasta";
 
 using namespace align_reads;
 
@@ -60,11 +61,28 @@ TEST(Aligner, align_overlap)
     auto& target = inputs.get_id_in_group(0, 0);
     auto overlaps = ovl.find_overlaps(target, 0);
     std::string target_string = target->InflateData();
-    auto result = align_overlap(overlaps[0], inputs, target_string);
+    auto result = align_overlap(overlaps[0], &inputs, target_string.c_str(), target_string.size());
+    EXPECT_TRUE(overlaps[0].strand);
     auto alignment = AlignmentSegment(result.clipped_query, 0, target_string, result.t_start, result.result);
     alignment.print(target_string);
 
+}
 
-    
+TEST(Aligner, align_overlap_reverse)
+{
+    biosoup::NucleicAcid::num_objects = 0;
+    std::vector<std::string> paths = {align_reverse_path};
+    align_reads::Inputs inputs(1);
+    inputs.append_to_group(0, paths, pool);
+    Overlapper ovl {1, pool};
+    ovl.index_sequences(inputs.get_group(0), 0);
+    auto& target = inputs.get_id_in_group(0, 0);
+    auto overlaps = ovl.find_overlaps(target, 0);
+    std::string target_string = target->InflateData();
+    auto result = align_overlap(overlaps[0], &inputs, target_string.c_str(), target_string.size());
+    EXPECT_FALSE(overlaps[0].strand);
+    auto alignment = AlignmentSegment(result.clipped_query, 0, target_string, result.t_start, result.result);
+    alignment.print(target_string);
 
 }
+

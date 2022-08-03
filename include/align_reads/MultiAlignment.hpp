@@ -23,6 +23,8 @@ namespace align_reads
         std::string target; // The target sequence
         std::vector<AlignmentSegment> alignment_segments;
         std::vector<AlignmentSegment> truth_to_target;
+        std::uint32_t largest_truth_start;
+        std::uint32_t smallest_truth_end;
 
         friend class AlignmentConverter;
     };

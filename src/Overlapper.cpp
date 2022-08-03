@@ -35,4 +35,5 @@ namespace align_reads
         indices[index_id].Minimize(sequences.begin(), sequences.end(), MINHASH_BOOL);
     }
 
+
 } // namespace align_reads

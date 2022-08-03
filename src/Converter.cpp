@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <stdlib.h> // srand, rand
 #include <time.h>   // time
+#include <iostream>
 
 #include "align_reads/Converter.hpp"
 #include "align_reads/Utilities.hpp"
@@ -7,8 +9,9 @@
 #define PAD_CODE 5
 #define PAD_CHAR '*' // Also defined in Aligner.cpp
 
-#define ROWS_FOR_TARGET 0 // Reserve this number of rows for the target seq in each matrix
+#define ROWS_FOR_TARGET 0  // Reserve this number of rows for the target seq in each matrix
 #define SAMPLE_TARGET true // Do we sample the target seq too when filling matrix?
+#define MIN_ALIGNED 1 // Min number of aligned segments for a window's matrix to be used
 
 namespace align_reads
 {
@@ -35,15 +38,29 @@ namespace align_reads
         : alignment_ptr(&alignment), matrix_width(matrix_width), matrix_height(matrix_height)
     {
         info_ptr = nullptr;
+        // The span of the alignment target (start/end) to consider may vary due 
+        // to unreliable alignments at the ends etc
+        std::uint32_t start_on_target = 0; // start index on target from which to consider
+        std::uint32_t end_on_target = alignment_ptr->target.size() - 1; // inclusive end index
+
+        if (!alignment.truth_to_target.empty())
+        {
+            start_on_target = alignment.largest_truth_start;
+            end_on_target = alignment.smallest_truth_end;
+        }
+
         std::uint32_t i = 0;
         std::uint32_t j = 0;
         // record the highest number of ins at each target pos
         std::vector<std::uint32_t> max_ins_at_pos;
         max_ins_at_pos.resize(alignment_ptr->target.size(), 0); // * ignoring ins to the left of target
+    
         for (auto &s : alignment_ptr->alignment_segments)
         {
             std::uint32_t index_on_target = s.start_on_target;
-            for (i = 1; i < s.ins_segments.size(); i++) // * ignoring ins to the left
+            if (start_on_target > index_on_target) index_on_target = start_on_target;
+            
+            for (i = index_on_target - s.start_on_target + 1; i < s.ins_segments.size(); i++) // * ignoring ins to the left
             {
                 auto &ins_segment = s.ins_segments[i];
                 if (ins_segment.size() > max_ins_at_pos[index_on_target])
@@ -51,36 +68,33 @@ namespace align_reads
                     max_ins_at_pos[index_on_target] = ins_segment.size();
                 }
                 index_on_target++;
+                if (index_on_target > end_on_target) break;
             }
         }
-        max_ins_at_pos.back() = 0; // * ignore ins to the right
+        
+        max_ins_at_pos[end_on_target] = 0; // * ignore ins to the right
         // Label each position with its window index
 
         std::vector<std::uint32_t> target_pos_window_index;
         target_pos_window_index.reserve(alignment_ptr->target.size());
-        std::vector<std::vector<std::uint32_t>> ins_pos_window_index;
-        ins_pos_window_index.resize(alignment_ptr->target.size());
-        std::uint32_t total_width = alignment_ptr->target.size();
-        i = 0;
-        for (auto &s : ins_pos_window_index)
+        target_pos_window_index.resize(start_on_target, -1);
+        std::uint32_t total_width = end_on_target - start_on_target + 1;
+        i = start_on_target;
+        while (i <= end_on_target)
         {
-            total_width += max_ins_at_pos[i];
-            s.reserve(max_ins_at_pos[i++]);
+            total_width += max_ins_at_pos[i++];
         }
-        width_idx_to_pos_idx.reserve(total_width);
+        width_idx_to_pos_idx.reserve(end_on_target - start_on_target + 1);
         std::uint32_t width_index = 0;
-        for (i = 0; i < alignment_ptr->target.size(); i++)
+        for (i = start_on_target; i <= end_on_target; i++)
         {
-            // if (width_index % matrix_width == 0)
-            //     start_of_windows.emplace_back(i, 0); // record start of window
             width_idx_to_pos_idx.emplace_back(i, 0);
             target_pos_window_index.push_back((width_index++) / matrix_width);
             for (j = 0; j < max_ins_at_pos[i]; j++)
             {
-                // if (width_index % matrix_width == 0)
-                //     start_of_windows.emplace_back(i, j + 1); // record start of window
+                 
                 width_idx_to_pos_idx.emplace_back(i, j + 1);
-                ins_pos_window_index[i].push_back((width_index++) / matrix_width);
+                width_index++;
             }
         }
 
@@ -89,23 +103,15 @@ namespace align_reads
         i = 0;
         for (auto &segment : alignment_ptr->alignment_segments)
         {
-            std::uint32_t first_window = target_pos_window_index[segment.start_on_target];
-            std::uint32_t last_window = target_pos_window_index[segment.end_on_target];
-            /*
-            do not consider ins to right
-            if (segment.ins_segments.back().size() > 0)
-            {
-                last_window = ins_pos_window_index[segment.end_on_target][segment.ins_segments.back().size() - 1];
-            }
-            */
-
+            std::uint32_t first_window = target_pos_window_index[std::max(segment.start_on_target, start_on_target)];
+            std::uint32_t last_window = target_pos_window_index[std::min(segment.end_on_target, end_on_target)];
             for (j = first_window; j <= last_window; j++)
             {
                 segments_in_windows[j].push_back(i);
             }
-
             i++;
         }
+        
     }
 
     AlignmentConverter::AlignmentConverter(MultiAlignment &alignment, std::uint32_t matrix_height, std::uint32_t matrix_width, Info &info)
@@ -123,6 +129,7 @@ namespace align_reads
         auto current_index = width_idx_to_pos_idx[width_index++];
         std::uint32_t target_index = current_index.first;
         std::uint32_t ins_index = current_index.second;
+        
         // pad on left
         while (target_index < segment.start_on_target)
         {
@@ -134,6 +141,7 @@ namespace align_reads
             target_index = current_index.first;
             ins_index = current_index.second;
         }
+
         // aligned segment
         while (target_index <= segment.end_on_target)
         {
@@ -196,8 +204,7 @@ namespace align_reads
         std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
         for (std::uint32_t i = 0; i < segments_in_windows.size(); i++)
         {
-            std::uint32_t num_in_window = segments_in_windows[i].size();
-            if (num_in_window == 0)
+            if (segments_in_windows[i].size() < MIN_ALIGNED)
                 continue; // if no segment falls into this window
             result[i].reserve(matrix_height);
             result[i].resize(num_reserved_for_target, num_alignment);
@@ -215,14 +222,14 @@ namespace align_reads
         std::vector<std::vector<std::uint32_t>> chosen = choose_segments(ROWS_FOR_TARGET, SAMPLE_TARGET);
         Data data;
         data.Xs = produce_alignment_matrices(chosen, pool);
-        if (with_labels) 
+        if (with_labels)
         {
             // attach label info to the struct
         }
         return data;
     }
 
-    std::vector<PyObject*> AlignmentConverter::produce_alignment_matrices(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
+    std::vector<PyObject *> AlignmentConverter::produce_alignment_matrices(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
         std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
         npy_intp dims[2];
@@ -230,12 +237,13 @@ namespace align_reads
         dims[1] = matrix_width;
         std::uint32_t i = 0;
         std::uint32_t m_idx = 0;
-        std::vector<PyObject*> Xs;
+        std::vector<PyObject *> Xs;
         // ---> I think PyArray_SimpleNew cannot have multiple called in parallel!!!
         Xs.reserve(chosen.size());
-        for (auto& list : chosen)
+        for (auto &list : chosen)
         {
-            if (!list.empty()) Xs.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
+            if (!list.empty())
+                Xs.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
         }
 
         auto produce_matrix = [&](std::vector<std::uint32_t> &alignment_indices, std::uint32_t window_index, std::uint32_t matrix_idx)
@@ -252,7 +260,6 @@ namespace align_reads
                     this->fill_row_from_alignment(Xs[matrix_idx], window_index, row_idx++, alignment_ptr->alignment_segments[alignment_idx]);
                 }
             }
-            
         };
 
         if (pool == nullptr)

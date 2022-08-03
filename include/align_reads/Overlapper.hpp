@@ -32,6 +32,7 @@ namespace align_reads
         std::vector<ram::MinimizerEngine> indices;
     };
 
+
 } // namespace align_reads
 
 #endif // ALIGN_READS_OVERLAPPER_HPP_

@@ -123,7 +123,8 @@ namespace align_reads
 
         AlignmentIterator iterator(std::uint32_t start_t_idx, std::uint32_t start_i_idx);
 
-        // Print this alignment segment (target string is required)
+        // Print this alignment segment in blocks(target string is required)
+        // The starting index (w.r.t. the target) of each block is given.
         void print(std::string &target);
 
     private:

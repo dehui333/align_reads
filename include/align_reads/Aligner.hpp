@@ -17,7 +17,10 @@
 
 
 // !!!!!!!!! biosoup::Nucleic_acid's ReverseAndComplement() changes the
-// state of the sequence object and is not thread safe?!
+// state of the sequence object and is not thread safe
+
+// todo?? : local realignment to have affine gap...?
+// todo?? : split alignment into subwindows by using estimation from overlap...?
 
 
 /*
@@ -66,7 +69,7 @@ namespace align_reads
 
     // align some number of overlapping segments.
     // will remove the aligned ones from the container.
-    std::vector<clipped_alignment<EdlibAlignResult>> align_overlaps(std::vector<biosoup::Overlap> &overlaps, std::uint16_t num, align_reads::Inputs &inputs, std::string &target);
+    std::vector<clipped_alignment<EdlibAlignResult>> align_overlaps(std::vector<biosoup::Overlap> &overlaps, std::uint16_t num, align_reads::Inputs &inputs, std::string &target, std::uint8_t query_group);
 
     // Integrates alignment, straightaway gives alignment_segment
     AlignmentSegment get_alignment_segment(std::string &query, std::uint32_t q_start, std::uint32_t q_len,

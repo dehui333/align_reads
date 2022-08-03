@@ -27,10 +27,10 @@ TEST(Overlapper, class_Overlapper)
     auto ov2 = finder.find_overlaps(seq, 1);
     EXPECT_GT(ov2.size(), ov1.size());
 }
-/*
+
 TEST(Overlapper, find_from_real)
 {
-    std::vector<std::string> paths = {"../ignored/reads/drosophila-f1-100k.fastq"};
+    std::vector<std::string> paths = {"../test_data/real_overlapping.fasta"};
     align_reads::Inputs inputs(1);
     inputs.append_to_group(0, paths, pool);
 
@@ -40,6 +40,7 @@ TEST(Overlapper, find_from_real)
     auto &seq = inputs.get_id_in_group(0, 0);
     auto ov = finder.find_overlaps(seq, 0);
 
-    std::cout << "num " << ov.size() << std::endl;
+    EXPECT_EQ(ov.size(), 9);
 
-}*/
+}
+

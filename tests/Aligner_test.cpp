@@ -61,7 +61,7 @@ TEST(Aligner, align_overlap)
     auto& target = inputs.get_id_in_group(0, 0);
     auto overlaps = ovl.find_overlaps(target, 0);
     std::string target_string = target->InflateData();
-    auto result = align_overlap(overlaps[0], &inputs, target_string.c_str(), target_string.size());
+    auto result = align_overlap(overlaps[0], &inputs, target_string.c_str(), target_string.size(), 0);
     EXPECT_TRUE(overlaps[0].strand);
     auto alignment = AlignmentSegment(result.clipped_query, 0, target_string, result.t_start, result.result);
     alignment.print(target_string);
@@ -79,10 +79,51 @@ TEST(Aligner, align_overlap_reverse)
     auto& target = inputs.get_id_in_group(0, 0);
     auto overlaps = ovl.find_overlaps(target, 0);
     std::string target_string = target->InflateData();
-    auto result = align_overlap(overlaps[0], &inputs, target_string.c_str(), target_string.size());
+    auto result = align_overlap(overlaps[0], &inputs, target_string.c_str(), target_string.size(), 0);
     EXPECT_FALSE(overlaps[0].strand);
     auto alignment = AlignmentSegment(result.clipped_query, 0, target_string, result.t_start, result.result);
     alignment.print(target_string);
 
 }
 
+TEST(Aligner, align_overlap_real)
+{
+    std::vector<std::string> paths = {"../test_data/real_overlapping.fasta"};
+    align_reads::Inputs inputs(1);
+    inputs.append_to_group(0, paths, pool);
+
+    align_reads::Overlapper finder{1, pool};
+    finder.index_sequences(inputs.get_group(0), 0);
+
+    auto &target = inputs.get_id_in_group(0, 0);
+    auto ov = finder.find_overlaps(target, 0);
+    EXPECT_EQ(ov.size(), 9);
+    auto target_string = target->InflateData();
+
+    auto result = align_overlap(ov[0], &inputs, target_string.c_str(), target_string.size(), 0);
+    auto alignment = AlignmentSegment(result.clipped_query, 0, target_string, result.t_start, result.result);
+    alignment.print(target_string);
+
+}
+
+
+TEST(Aligner, align_overlap_assembly)
+{
+    std::vector<std::string> reads_path = {"../test_data/real_overlapping.fasta"};
+    std::vector<std::string> assembly_path = {"../test_data/iso_flye_hq.fasta"};
+    align_reads::Inputs inputs(2);
+    inputs.append_to_group(0, reads_path, pool);
+    inputs.append_to_group(1, assembly_path, pool);
+
+    align_reads::Overlapper finder{2, pool};
+    finder.index_sequences(inputs.get_group(1), 0);
+
+    auto &target = inputs.get_id_in_group(0, 0);
+    auto ov = finder.find_overlaps(target, 0);
+
+    auto target_string = target->InflateData();
+    auto result = align_overlap(ov[0], &inputs, target_string.c_str(), target_string.size(), 1);
+    auto alignment = AlignmentSegment(result.clipped_query, 0, target_string, result.t_start, result.result);
+    alignment.print(target_string);
+
+}

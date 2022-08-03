@@ -77,6 +77,7 @@ namespace align_reads
             // Produce matrices which consist of alignments of sequences aligned to the targert
             std::vector<PyObject*> produce_alignment_matrices(std::vector<std::vector<std::uint32_t>>& chosen, std::shared_ptr<thread_pool::ThreadPool> &pool);
 
+            std::vector<PyObject*> produce_truth_matrices(std::vector<std::vector<std::uint32_t>>& chosen, std::shared_ptr<thread_pool::ThreadPool> &pool);
             
     };
 

@@ -300,4 +300,75 @@ namespace align_reads
         return Xs;
     }
 
+    std::vector<PyObject *> AlignmentConverter::produce_truth_matrices(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
+    {
+        std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
+        npy_intp dims[2];
+        dims[0] = matrix_height;
+        dims[1] = matrix_width;
+        std::uint32_t i = 0;
+        std::uint32_t m_idx = 0;
+        std::vector<PyObject *> Ys;
+        // ---> I think PyArray_SimpleNew cannot have multiple called in parallel!!!
+        Ys.reserve(chosen.size());
+        for (auto &list : chosen)
+        {
+            if (!list.empty())
+                Ys.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
+        }
+
+        auto produce_matrix = [&](std::vector<std::uint32_t> &alignment_indices, std::uint32_t window_index, std::uint32_t matrix_idx, Info* info_ptr)
+        {
+            uint32_t row_idx = 0;
+            for (auto alignment_idx : alignment_indices)
+            {
+                if (alignment_idx == num_alignment)
+                {
+                    this->fill_row_from_alignment(Ys[matrix_idx], window_index, row_idx++, alignment_ptr->truth_to_target[info_ptr->hap_of_target]);
+                }
+                else
+                {
+                    this->fill_row_from_alignment(Ys[matrix_idx], window_index, row_idx++, alignment_ptr->truth_to_target[info_ptr->hap_of_aligned[alignment_idx]]);
+                }
+            }
+        };
+
+        if (pool == nullptr)
+        {
+            std::uint32_t row_idx = 0;
+            for (; i < chosen.size(); i++)
+            {
+                if (chosen[i].empty())
+                    continue;
+                row_idx = 0;
+                for (auto alignment_idx : chosen[i])
+                {
+                    if (alignment_idx == num_alignment)
+                    {
+                        this->fill_row_from_alignment(Ys[m_idx], i, row_idx++, alignment_ptr->truth_to_target[info_ptr->hap_of_target]);
+                    }
+                    else
+                    {
+                        this->fill_row_from_alignment(Ys[m_idx], i, row_idx++, alignment_ptr->truth_to_target[info_ptr->hap_of_aligned[alignment_idx]]);
+                    }
+                }
+                m_idx++;
+            }
+        }
+        else
+        {
+            Futures<void> futures(pool, chosen.size());
+
+            for (; i < chosen.size(); i++)
+            {
+                if (chosen[i].empty())
+                    continue;
+                futures.add_inputs(produce_matrix, chosen[i], i, m_idx++, this->info_ptr);
+            }
+            futures.finish();
+        }
+
+        return Ys;
+    }
+
 } // namespace align_reads

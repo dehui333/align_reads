@@ -1,5 +1,5 @@
-#ifndef ALIGN_READS_GENERATOR_HPP_
-#define ALIGN_READS_GENERATOR_HPP_
+#ifndef ALIGN_READS_ALIGNER_HPP_
+#define ALIGN_READS_ALIGNER_HPP_
 
 #include "biosoup/overlap.hpp"
 #include "edlib.h"
@@ -76,6 +76,9 @@ namespace align_reads
                                            std::string &target, std::uint32_t t_start, std::uint32_t t_len,
                                            EdlibAlignMode mode, EdlibAlignTask task);
 
+    AlignmentSegment get_alignment_segment2(clipped_alignment<EdlibAlignResult>& result, std::string target_string);
+                                           
+
 } // namespace align_reads
 
-#endif // ALIGN_READS_GENERATOR_HPP_
+#endif // ALIGN_READS_ALIGNER_HPP_

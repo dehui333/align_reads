@@ -168,4 +168,9 @@ namespace align_reads
         }
     }
 
+    AlignmentSegment get_alignment_segment2(clipped_alignment<EdlibAlignResult>& result, std::string target_string)
+    {
+        return {result.clipped_query, 0, target_string, result.t_start, result.result};
+    }
+
 } // namespace align_reads

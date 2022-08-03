@@ -1,6 +1,7 @@
 #ifndef ALIGN_READS_GENERATOR_HPP_
 #define ALIGN_READS_GENERATOR_HPP_
 
+#include "align_reads/Converter.hpp"
 #include "align_reads/Inputs.hpp"
 #include "align_reads/Overlapper.hpp"
 
@@ -24,9 +25,13 @@ namespace align_reads
                   std::shared_ptr<thread_pool::ThreadPool> &pool);
         Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> &pool);
 
+        Data produce_data();
+
+
     private:
         bool has_haplotypes = false; // is there haplotype info?
         std::uint32_t start_of_reads1 = 0; // id from which second set of reads start from
+        std::uint32_t current_target = 0; // may need atomic if parallelize?
 
         std::shared_ptr<thread_pool::ThreadPool> pool = nullptr; // pool of workers
         Inputs inputs; // Stores input sequences

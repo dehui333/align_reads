@@ -1,3 +1,4 @@
+#include "align_reads/Aligner.hpp"
 #include "align_reads/Generator.hpp"
 
 namespace align_reads
@@ -27,6 +28,26 @@ namespace align_reads
         inputs.append_to_group(READS_GROUP, reads, pool);
         inputs.index_group(READS_GROUP);
         overlapper.index_sequences(inputs.get_group(READS_GROUP), READS_GROUP);
+    }
+
+    Data Generator::produce_data()
+    {
+        Data r;
+
+        auto& target = inputs.get_id_in_group(READS_GROUP, current_target++);
+        std::string target_string = target->InflateData();
+        auto overlaps = overlapper.find_overlaps(target, READS_GROUP);
+        // currently just align all
+        // TODO: 
+        // 1. throw away badly aligned results
+        // 2. align in batches, keep track distribution across windows, stop when enough
+        //auto align_results = align_overlaps(overlaps, overlaps.size(), inputs, target_string, READS_GROUP);
+
+
+
+
+
+        return r;
     }
 
 } // namespace align_reads

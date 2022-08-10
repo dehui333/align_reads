@@ -25,13 +25,12 @@
 #define EXTRACT nanosim_extract
 #define RANDOM_SEED 422
 #define OVLP_THRES 0
-#define TARGET_NUM 1000
+#define TARGET_NUM 3
 #define MINHASH_BOOL true
 
 #define TYPE_PREFIX 0
 #define TYPE_SUFFIX 1
 #define TYPE_OTHERS 2
-
 
 std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 
@@ -144,21 +143,61 @@ namespace align_reads
         }
     };
 
-    std::set<overlap_info, comp> all_true_overlaps;
-    std::set<overlap_info, comp> tps;
-    std::set<overlap_info, comp> fps;
-    std::set<overlap_info, comp> fns;
-    std::set<overlap_info, comp> filtered_t;
+    struct pred1 {
+        bool operator() (const overlap_info& lhs, const overlap_info& rhs) const 
+        {
+            if (lhs.query_info.id == rhs.query_info.id) return lhs.target_info.id == rhs.target_info.id;
+            if (rhs.query_info.id == rhs.target_info.id) return lhs.target_info.id == rhs.query_info.id;
+            return false;
+        }
+    };
 
-    std::set<id_pair, comp2> accepts;
-    std::set<id_pair, comp2> rejects;
+    struct pred2 {
+        bool operator() (const id_pair& lhs, const id_pair& rhs) const 
+        {
+            if (lhs.id1 == rhs.id1) return lhs.id2 == rhs.id2;
+            if (rhs.id1 == rhs.id2) return lhs.id2 == rhs.id1;
+            return false;
+        }
+    };
 
-    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> true_has;   
+    struct hash1 {
+        std::size_t operator() (const overlap_info& o) const 
+        {
+
+            return std::hash<std::uint32_t>{}(o.query_info.id) ^ std::hash<std::uint32_t>{}(o.target_info.id); 
+
+        }
+
+
+    };
+
+    struct hash2 {
+        std::size_t operator() (const id_pair& o) const
+        {
+
+           return std::hash<std::uint32_t>{}(o.id1) ^ std::hash<std::uint32_t>{}(o.id2); 
+
+        }
+
+
+    };
+
+
+    std::unordered_set<overlap_info, hash1, pred1> all_true_overlaps;
+    std::unordered_set<overlap_info, hash1, pred1> tps;
+    std::unordered_set<overlap_info, hash1, pred1> fps;
+    std::unordered_set<overlap_info, hash1, pred1> fns;
+    std::unordered_set<overlap_info, hash1, pred1> filtered_t;
+
+    std::unordered_set<id_pair, hash2, pred2> accepts;
+    std::unordered_set<id_pair, hash2, pred2> rejects;
+
+    std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> true_has;
     std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> true_lack;
     std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> found_has;
     std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> found_lack;
 
-    
     std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> found_lack_false;
 
     std::unordered_map<std::uint32_t, std::pair<std::uint16_t, std::uint16_t>> found_has_false;
@@ -389,39 +428,23 @@ namespace align_reads
     void Aligner::filter_overlaps(std::vector<biosoup::Overlap> &overlaps)
     {
         std::uint16_t overhang_thres = 500;
-        double dist_thres = 0.2;
+        double dist_thres = 0.3;
         std::vector<biosoup::Overlap> filtered;
         filtered.reserve(overlaps.size());
-        /*std::uint16_t num_prefix_pass = 0;
-        std::uint16_t num_suffix_pass = 0;
-        std::vector<biosoup::Overlap> failed_prefix_o;
-        std::vector<biosoup::Overlap> failed_suffix_o;
-        failed_prefix_o.reserve(overlaps.size() / 10);
-        failed_suffix_o.reserve(overlaps.size() / 10);
-        std::uint16_t thres = 1;*/
-        std::set<overlap_info, comp> non_filtered_t;
         for (auto &o : overlaps)
         {
 
             auto &query_sequence = sequences[id_to_pos_index[o.rhs_id]];
             auto &target_sequence = sequences[id_to_pos_index[o.lhs_id]];
-            
-            seq_info query_info = EXTRACT(query_sequence->name);
-            seq_info target_info = EXTRACT(target_sequence->name);
-            target_info.idx_in_sequences = id_to_pos_index[o.lhs_id];
-            query_info.idx_in_sequences = id_to_pos_index[o.rhs_id];
-            std::uint32_t ovlp_len = overlap_len(query_info, target_info);
-            overlap_info o_info {query_info, target_info};
-            
+
             std::uint32_t t_o_begin = o.lhs_begin;
             std::uint32_t t_o_end = o.lhs_end;
             std::uint32_t q_o_begin = o.rhs_begin;
-            
+
             std::uint32_t q_o_end = o.rhs_end;
 
             if (!o.strand)
             {
-                o_info.is_reverse = true;
                 query_sequence->ReverseAndComplement();
                 q_o_end = query_sequence->inflated_len - o.rhs_begin;
                 q_o_begin = query_sequence->inflated_len - o.rhs_end;
@@ -454,25 +477,6 @@ namespace align_reads
                 t_clip_right = -protrude_right;
             }
 
-            /*
-            if (protrude_left > 0) {
-                if (protrude_right < 0) num_prefix++;
-            } else if (protrude_right > 0) {
-                num_suffix++;
-            }
-            */
-
-            o_info.q_clip_left = q_clip_left;
-            o_info.q_clip_right = q_clip_right;
-            o_info.t_clip_left = t_clip_left;
-            o_info.t_clip_right = t_clip_right;
-
-            o_info.q_o_begin = q_o_begin;
-            o_info.q_o_end = q_o_end;
-            o_info.t_o_begin = t_o_begin;
-            o_info.t_o_end = t_o_end;
-            o_info.score = o.score;
-
             std::uint32_t left_overhang = q_o_begin - q_clip_left;
             std::uint32_t right_overhang = query_sequence->inflated_len - q_clip_right - q_o_end;
 
@@ -481,85 +485,55 @@ namespace align_reads
             std::uint32_t query_string_len = query_sequence->inflated_len - q_clip_left - q_clip_right;
             std::uint32_t target_string_len = target_sequence->inflated_len - t_clip_left - t_clip_right;
 
-            // double overhang_ratio = (double)(left_overhang + right_overhang) / std::min(query_string_len, target_string_len);
-            double norm_score = (double)o.score / std::max(o.rhs_end - o.rhs_begin, o.lhs_end - o.lhs_begin);
             std::string target_string = target_sequence->InflateData(t_clip_left, target_string_len);
             std::string query_string = query_sequence->InflateData(q_clip_left, query_string_len);
 
             bool declared_bad = false;
 
-            if (false /*norm_score < 0.08*/)
+            if (larger > overhang_thres)
             {
                 declared_bad = true;
             }
-            else
+
+            if (declared_bad)
             {
-                if (larger > overhang_thres)
+                bool left_ok = true;
+                bool right_ok = true;
+                if (left_overhang > overhang_thres)
                 {
-                    declared_bad = true;
+                    left_ok = false;
+                    EdlibAlignResult result = edlibAlign(query_string.c_str() + 100, 100,
+                                                         target_string.c_str(), 300,
+                                                         edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
+                    if ((double)result.editDistance / 100 < dist_thres)
+                        left_ok = true;
+                    edlibFreeAlignResult(result);
                 }
 
-                if (declared_bad)
+                if (right_overhang > overhang_thres)
                 {
-                    bool left_ok = true;
-                    bool right_ok = true;
-                    if (left_overhang > overhang_thres)
-                    {
-                        left_ok = false;
-                        EdlibAlignResult result = edlibAlign(query_string.c_str() + 100, 100,
-                                                             target_string.c_str(), 300,
-                                                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
-                        if ((double)result.editDistance / 100 < dist_thres)
-                            left_ok = true;
-                        edlibFreeAlignResult(result);
-                    }
-
-                    if (right_overhang > overhang_thres)
-                    {
-                        right_ok = false;
-                        EdlibAlignResult result = edlibAlign(query_string.c_str() + query_string.size() - 200, 100,
-                                                             target_string.c_str() + target_string.size() - 300, 300,
-                                                             edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
-                        if ((double)result.editDistance / 100 < dist_thres)
-                            right_ok = true;
-                        edlibFreeAlignResult(result);
-                    }
-                    if (left_ok && right_ok)
-                        declared_bad = false;
+                    right_ok = false;
+                    EdlibAlignResult result = edlibAlign(query_string.c_str() + query_string.size() - 200, 100,
+                                                         target_string.c_str() + target_string.size() - 300, 300,
+                                                         edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
+                    if ((double)result.editDistance / 100 < dist_thres)
+                        right_ok = true;
+                    edlibFreeAlignResult(result);
                 }
+                if (left_ok && right_ok)
+                    declared_bad = false;
             }
 
             if (!declared_bad)
             {
                 filtered.push_back(o);
-                /*if (is_prefix) {
-                    num_prefix_pass++;
-                } else if (is_suffix) {
-                    num_suffix_pass++;
-                }*/
-            } /*else {
-                if (is_prefix) {
-                    failed_prefix_o.push_back(o);
-                } else if(is_suffix) {
-                    failed_suffix_o.push_back(o);
-                }
-            }*/
-            if (!declared_bad && ovlp_len > OVLP_THRES) non_filtered_t.insert(o_info);
-            if (declared_bad && ovlp_len > OVLP_THRES) filtered_t.insert(o_info); 
+               
+            } 
+        
             if (!o.strand)
                 query_sequence->ReverseAndComplement();
         }
-        for (auto& i : non_filtered_t) {
-            filtered_t.erase(i);
-        }
 
-        /*if (num_prefix_pass < thres) {
-            filtered.insert(filtered.end(), failed_prefix_o.begin(), failed_prefix_o.begin() + std::min((uint16_t) failed_prefix_o.size(), thres - num_prefix_pass));
-        }
-        if (num_suffix_pass < thres) {
-
-            filtered.insert(filtered.end(), failed_suffix_o.begin(), failed_suffix_o.begin() + std::min((uint16_t) failed_suffix_o.size(), thres - num_suffix_pass));
-        }*/
         filtered.shrink_to_fit();
         overlaps = std::move(filtered);
     }
@@ -568,11 +542,15 @@ namespace align_reads
     {
         std::uint32_t num_prefix = 0;
         std::uint32_t num_suffix = 0;
-        for (auto& o_info: tps) {
+        for (auto &o_info : tps)
+        {
             auto type = overlap_type(o_info.target_info, o_info.query_info, o_info.target_info.forward);
-            if (type == TYPE_PREFIX) {
+            if (type == TYPE_PREFIX)
+            {
                 num_prefix++;
-            } else if (type == TYPE_SUFFIX) {
+            }
+            else if (type == TYPE_SUFFIX)
+            {
                 num_suffix++;
             }
         }
@@ -580,13 +558,15 @@ namespace align_reads
         std::cout << "num true suffix: " << num_true_suffix_o << std::endl;
         std::cout << "num true prefix found:" << num_prefix << std::endl;
         std::cout << "num true suffix found:" << num_suffix << std::endl;
-        std::cout << "recall of prefix-suffix: " << (double) (num_prefix + num_suffix) / (num_true_prefix_o + num_true_suffix_o) << std::endl; 
+        std::cout << "recall of prefix-suffix: " << (double)(num_prefix + num_suffix) / (num_true_prefix_o + num_true_suffix_o) << std::endl;
     }
 
-    void Aligner::compare_break() {
+    void Aligner::compare_break()
+    {
         std::cout << "true lack: " << std::endl;
         std::cout << "-------------------------" << std::endl;
-        for (auto& item: true_lack) {
+        for (auto &item : true_lack)
+        {
             auto info = EXTRACT(sequences[item.first]->name);
             auto len = info.end - info.start;
             std::cout << "num p: " << item.second.first << "num s: " << item.second.second << " len: " << len << std::endl;
@@ -600,81 +580,82 @@ namespace align_reads
         std::uint32_t num_1000 = 0;
         std::uint32_t num_2000 = 0;
         std::uint32_t num_more = 0;
-        for (auto& item : found_lack) {
-            if (true_lack.find(item.first) != true_lack.end()) {
+        for (auto &item : found_lack)
+        {
+            if (true_lack.find(item.first) != true_lack.end())
+            {
                 continue;
             }
             std::cout << "id " << item.first << std::endl;
             auto info = EXTRACT(sequences[item.first]->name);
             auto len = info.end - info.start;
-            if (len <= 500) {
+            if (len <= 500)
+            {
                 std::cout << "cat 500" << std::endl;
                 num_500++;
-                
-            } else if (len <= 1000) {
+            }
+            else if (len <= 1000)
+            {
                 std::cout << "cat 1000" << std::endl;
                 num_1000++;
-            } else if (len <= 2000) {
+            }
+            else if (len <= 2000)
+            {
                 std::cout << "cat 2000" << std::endl;
                 num_2000++;
-            } else {
+            }
+            else
+            {
                 std::cout << "cat more" << std::endl;
                 num_more++;
             }
             std::cout << sequences[item.first]->name << std::endl;
             std::cout << "num p: " << item.second.first << " num s: " << item.second.second << " len: " << len << std::endl;
-            auto& item_before = true_has[item.first];
-            std::cout << "before: num p: " << item_before.first << " num s: " << item_before.second  << std::endl;
-            auto& item_false = found_lack_false[item.first];
-            std::cout << "false: num p: " << item_false.first << " num s: " << item_false.second  << std::endl;
- 
-
+            auto &item_before = true_has[item.first];
+            std::cout << "before: num p: " << item_before.first << " num s: " << item_before.second << std::endl;
+            auto &item_false = found_lack_false[item.first];
+            std::cout << "false: num p: " << item_false.first << " num s: " << item_false.second << std::endl;
         }
 
-
-        std::cout << "num (0, 500]: " << num_500 << std::endl; 
-        std::cout << "num (500, 1000]: " << num_1000 << std::endl; 
-        std::cout << "num (1000, 2000]: " << num_2000 << std::endl; 
-        std::cout << "num (2000, ?]: " << num_more << std::endl; 
+        std::cout << "num (0, 500]: " << num_500 << std::endl;
+        std::cout << "num (500, 1000]: " << num_1000 << std::endl;
+        std::cout << "num (1000, 2000]: " << num_2000 << std::endl;
+        std::cout << "num (2000, ?]: " << num_more << std::endl;
         std::cout << "-------------FOUND HAS --------------" << std::endl;
-        for (auto& item : found_has) {
+        for (auto &item : found_has)
+        {
             std::cout << "has id " << item.first << std::endl;
             auto info = EXTRACT(sequences[item.first]->name);
             auto len = info.end - info.start;
             std::cout << sequences[item.first]->name << std::endl;
             std::cout << "num p: " << item.second.first << " num s: " << item.second.second << " len: " << len << std::endl;
-            auto& item_before = true_has[item.first];
-            std::cout << "before: num p: " << item_before.first << " num s: " << item_before.second  << std::endl;
-            auto& item_false = found_has_false[item.first];
-            std::cout << "false: num p: " << item_false.first << " num s: " << item_false.second  << std::endl;
- 
-
+            auto &item_before = true_has[item.first];
+            std::cout << "before: num p: " << item_before.first << " num s: " << item_before.second << std::endl;
+            auto &item_false = found_has_false[item.first];
+            std::cout << "false: num p: " << item_false.first << " num s: " << item_false.second << std::endl;
         }
-
-
     }
-
 
     void Aligner::run()
     {
         // RAM_overlaps_simulated_reads();
         find_true_overlaps();
         // within_each();
-        find_RAM_overlaps(true);
-        //compare_break();
-        //find_RAM_overlaps(true);
-        //filtered_trues();
-        //account_prefix_suffix();
-        // find_RAM_overlaps_real(true);
-        //  true_positives_align_part();
-        //  false_positives_align_part();
-        //  true_positives();
-        // false_positives();
-        //false_negatives();
+        find_RAM_overlaps(false);
+        // compare_break();
+        // find_RAM_overlaps(true);
+        // filtered_trues();
+        // account_prefix_suffix();
+        //  find_RAM_overlaps_real(true);
+        //   true_positives_align_part();
+        //   false_positives_align_part();
+        //   true_positives();
+        //  false_positives();
+        // false_negatives();
     }
 
     void Aligner::find_true_overlaps()
-    {   
+    {
         std::uint32_t min_num_prefix = 10000;
         std::uint32_t min_num_suffix = 10000;
         std::uint16_t num_lacking_any = 0;
@@ -706,24 +687,32 @@ namespace align_reads
 
             auto target_info = EXTRACT(sequences[i]->name);
             auto s_len = target_info.end - target_info.start;
-            
+
             //
             /*if (i == 432 || i == 538) {
                 std::cout << "-----------------" << std::endl;
                 std::cout << sequences[i]->name << std::endl;
             }*/
-            if (s_len <= 200) {
+            if (s_len <= 200)
+            {
                 num_200++;
-            } else if (s_len <= 500) {
+            }
+            else if (s_len <= 500)
+            {
                 num_500++;
-            } else if (s_len <= 1000) {
+            }
+            else if (s_len <= 1000)
+            {
                 num_1000++;
-            } else if (s_len <= 2000) {
+            }
+            else if (s_len <= 2000)
+            {
                 num_2000++;
-            } else {
+            }
+            else
+            {
                 num_longer++;
             }
-
 
             for (auto j = 0; j < sequences.size(); j++)
             {
@@ -745,30 +734,36 @@ namespace align_reads
                     {
                         num_true_prefix_o++;
                         num_prefix++;
-                            
+
                         //
                         /*if (i == 432 || i == 538) {
                             std::cout << "prefix ovlp len " << len << std::endl;
                             std::cout << query_info.name << std::endl;
                         }*/
-                        if (s_len <= 200) {
+                        if (s_len <= 200)
+                        {
                             num_o_200++;
                             total_o_len_200 += len;
-
-                        } else if (s_len <= 500) {
+                        }
+                        else if (s_len <= 500)
+                        {
                             num_o_500++;
                             total_o_len_500 += len;
-
-                        } else if (s_len <= 1000) {
+                        }
+                        else if (s_len <= 1000)
+                        {
                             num_o_1000++;
                             total_o_len_1000 += len;
-
-                        } else if (s_len <= 2000) {
+                        }
+                        else if (s_len <= 2000)
+                        {
                             num_o_2000++;
-                            total_o_len_2000 += len;    
-                        } else {
+                            total_o_len_2000 += len;
+                        }
+                        else
+                        {
                             num_o_longer++;
-                            total_o_len_longer += len;    
+                            total_o_len_longer += len;
                         }
                     }
                     else if (o_type == TYPE_SUFFIX)
@@ -776,73 +771,83 @@ namespace align_reads
                         num_true_suffix_o++;
                         num_suffix++;
 
-                        if (s_len <= 200) {
+                        if (s_len <= 200)
+                        {
                             num_o_200++;
                             total_o_len_200 += len;
-
-                        } else if (s_len <= 500) {
+                        }
+                        else if (s_len <= 500)
+                        {
                             num_o_500++;
                             total_o_len_500 += len;
-
-                        } else if (s_len <= 1000) {
+                        }
+                        else if (s_len <= 1000)
+                        {
                             num_o_1000++;
                             total_o_len_1000 += len;
-
-                        } else if (s_len <= 2000) {
+                        }
+                        else if (s_len <= 2000)
+                        {
                             num_o_2000++;
-                            total_o_len_2000 += len;    
-                        } else {
+                            total_o_len_2000 += len;
+                        }
+                        else
+                        {
                             num_o_longer++;
-                            total_o_len_longer += len;    
+                            total_o_len_longer += len;
                         }
                         /*if (i == 432 || i == 538) {
                             //
                             std::cout << "suffix ovlp len " << len << std::endl;
                             std::cout << query_info.name << std::endl;
                         }*/
-
-
                     }
                 }
             }
-            if (num_prefix < min_num_prefix) min_num_prefix = num_prefix;
-            if (num_suffix < min_num_suffix) min_num_suffix = num_suffix;
-            if (num_prefix == 0 || num_suffix == 0) {
+            if (num_prefix < min_num_prefix)
+                min_num_prefix = num_prefix;
+            if (num_suffix < min_num_suffix)
+                min_num_suffix = num_suffix;
+            if (num_prefix == 0 || num_suffix == 0)
+            {
                 num_lacking_any++;
                 std::uint32_t len = (target_info.end - target_info.start);
                 total_len_lacking += len;
-                if (len > longest_len_lacking) longest_len_lacking = len;
+                if (len > longest_len_lacking)
+                    longest_len_lacking = len;
                 true_lack.emplace(i, std::make_pair(num_prefix, num_suffix));
-            } else {
+            }
+            else
+            {
 
                 true_has.emplace(i, std::make_pair(num_prefix, num_suffix));
             }
         }
         std::cout << "min num prefix: " << min_num_prefix << std::endl;
         std::cout << "min num suffix: " << min_num_suffix << std::endl;
-        std::cout << "avg num prefix: " << (double) num_true_prefix_o / TARGET_NUM << std::endl;
-        std::cout << "avg num suffix: " << (double) num_true_suffix_o / TARGET_NUM << std::endl;
-        std::cout << "num lacking any in true: "  << num_lacking_any << std::endl;
-        std::cout << "avg len lacking in true: " << (double) total_len_lacking / num_lacking_any << std::endl;
+        std::cout << "avg num prefix: " << (double)num_true_prefix_o / TARGET_NUM << std::endl;
+        std::cout << "avg num suffix: " << (double)num_true_suffix_o / TARGET_NUM << std::endl;
+        std::cout << "num lacking any in true: " << num_lacking_any << std::endl;
+        std::cout << "avg len lacking in true: " << (double)total_len_lacking / num_lacking_any << std::endl;
         std::cout << "longest len lacking: " << longest_len_lacking << std::endl;
-        
+
         std::cout << "num segment (0, 200]: " << num_200 << std::endl;
         std::cout << "num segment (200, 500]: " << num_500 << std::endl;
         std::cout << "num segment (500, 1000]: " << num_1000 << std::endl;
         std::cout << "num segment (1000, 2000]: " << num_2000 << std::endl;
         std::cout << "num segment (2000, ?]: " << num_longer << std::endl;
 
-        std::cout << "avg num prefix/suffix for (0, 200]: " << (double) num_o_200/num_200  << std::endl;
-        std::cout << "avg num prefix/suffix for (200, 500]: " << (double) num_o_500/num_500 << std::endl;
-        std::cout << "avg num prefix/suffix for (500, 1000]: " << (double) num_o_1000/num_1000 << std::endl;
-        std::cout << "avg num prefix/suffix for (1000, 2000]: " << (double) num_o_2000/num_2000 << std::endl;
-        std::cout << "avg num prefix/suffix for (2000, ?]: " << (double) num_o_longer/num_longer << std::endl;
-    
-        std::cout << "avg prefix/suffix overlap len for (0, 200]: " << (double) total_o_len_200 / num_o_200 << std::endl;
-        std::cout << "avg prefix/suffix overlap len for (200, 500]: " << (double) total_o_len_500 / num_o_500 << std::endl;
-        std::cout << "avg prefix/suffix overlap len for (500, 1000]: " << (double) total_o_len_1000 / num_o_1000 << std::endl;
-        std::cout << "avg prefix/suffix overlap len for (1000, 2000]: " << (double) total_o_len_2000 / num_o_2000 << std::endl;
-        std::cout << "avg prefix/suffix overlap len for (2000, ?]: " << (double) total_o_len_longer / num_o_longer << std::endl;
+        std::cout << "avg num prefix/suffix for (0, 200]: " << (double)num_o_200 / num_200 << std::endl;
+        std::cout << "avg num prefix/suffix for (200, 500]: " << (double)num_o_500 / num_500 << std::endl;
+        std::cout << "avg num prefix/suffix for (500, 1000]: " << (double)num_o_1000 / num_1000 << std::endl;
+        std::cout << "avg num prefix/suffix for (1000, 2000]: " << (double)num_o_2000 / num_2000 << std::endl;
+        std::cout << "avg num prefix/suffix for (2000, ?]: " << (double)num_o_longer / num_longer << std::endl;
+
+        std::cout << "avg prefix/suffix overlap len for (0, 200]: " << (double)total_o_len_200 / num_o_200 << std::endl;
+        std::cout << "avg prefix/suffix overlap len for (200, 500]: " << (double)total_o_len_500 / num_o_500 << std::endl;
+        std::cout << "avg prefix/suffix overlap len for (500, 1000]: " << (double)total_o_len_1000 / num_o_1000 << std::endl;
+        std::cout << "avg prefix/suffix overlap len for (1000, 2000]: " << (double)total_o_len_2000 / num_o_2000 << std::endl;
+        std::cout << "avg prefix/suffix overlap len for (2000, ?]: " << (double)total_o_len_longer / num_o_longer << std::endl;
     }
 
     void Aligner::within_each()
@@ -1743,7 +1748,7 @@ namespace align_reads
         std::uint32_t total_num_suffix = 0;
 
         std::uint32_t total_num_false_prefix = 0;
-        
+
         std::uint32_t total_num_false_suffix = 0;
 
         if (filter)
@@ -1843,36 +1848,37 @@ namespace align_reads
                     num_suffix++;
                 }*/
 
-                
                 if (overlap_len(query_info, target_info) > OVLP_THRES)
                 {
                     tps.insert(o_info);
                     auto o_type = overlap_type(target_info, query_info, target_info.forward);
                     if (o_type == TYPE_PREFIX)
                     {
-                   
+
                         num_prefix++;
                     }
                     else if (o_type == TYPE_SUFFIX)
                     {
-                       
+
                         num_suffix++;
                     }
-
                 }
                 else
                 {
                     fps.insert(o_info);
-                    if (protrude_left > 0) {
-                         if (protrude_right < 0) {
-                             total_num_false_prefix++;
-                             num_false_prefix++;
-                         }
-                    } else if (protrude_right > 0) {
-                         total_num_false_suffix++;
-                         num_false_suffix++;
+                    if (protrude_left > 0)
+                    {
+                        if (protrude_right < 0)
+                        {
+                            total_num_false_prefix++;
+                            num_false_prefix++;
+                        }
                     }
-
+                    else if (protrude_right > 0)
+                    {
+                        total_num_false_suffix++;
+                        num_false_suffix++;
+                    }
                 }
             }
             if (num_prefix == 0 || num_suffix == 0)
@@ -1880,11 +1886,12 @@ namespace align_reads
                 num_lacking++;
                 found_lack.emplace(i, std::make_pair(num_prefix, num_suffix));
                 found_lack_false.emplace(i, std::make_pair(num_false_prefix, num_false_suffix));
-                 
-            } else {
-                
-                found_has.emplace(i, std::make_pair(num_prefix, num_suffix)); 
-                
+            }
+            else
+            {
+
+                found_has.emplace(i, std::make_pair(num_prefix, num_suffix));
+
                 found_has_false.emplace(i, std::make_pair(num_false_prefix, num_false_suffix));
             }
             total_num_prefix += num_prefix;
@@ -1900,11 +1907,13 @@ namespace align_reads
         }
         std::cout << "num prefix found: " << total_num_prefix << std::endl;
         std::cout << "num suffix found: " << total_num_suffix << std::endl;
-        std::cout << "avg num recovered prefix: " << (double) total_num_prefix / TARGET_NUM << std::endl;
-        std::cout << "avg num recovered suffix: " << (double) total_num_suffix / TARGET_NUM << std::endl;
-        std::cout << "avg num false prefix: " << (double) total_num_false_prefix / TARGET_NUM << std::endl;
-        std::cout << "avg num false suffix: " << (double) total_num_false_suffix / TARGET_NUM << std::endl;
+        std::cout << "avg num recovered prefix: " << (double)total_num_prefix / TARGET_NUM << std::endl;
+        std::cout << "avg num recovered suffix: " << (double)total_num_suffix / TARGET_NUM << std::endl;
+        std::cout << "avg num false prefix: " << (double)total_num_false_prefix / TARGET_NUM << std::endl;
+        std::cout << "avg num false suffix: " << (double)total_num_false_suffix / TARGET_NUM << std::endl;
         std::cout << "num lacking: " << num_lacking << std::endl;
+        std::cout << "tp: " << tps.size() << " fp: " << fps.size() << std::endl;
+        std::cout << "total num true: " << all_true_overlaps.size() << std::endl;
         std::cout << "precision: " << ((double)tps.size() / (tps.size() + fps.size())) << std::endl;
         std::cout << "recall: " << ((double)tps.size() / all_true_overlaps.size()) << std::endl;
     }
@@ -1912,7 +1921,7 @@ namespace align_reads
     void Aligner::false_negatives()
     {
         std::uint32_t num_100 = 0;
-        std::uint32_t num_200 = 0;        
+        std::uint32_t num_200 = 0;
         std::uint32_t num_300 = 0;
         std::uint32_t num_400 = 0;
         std::uint32_t num_500 = 0;
@@ -1979,48 +1988,61 @@ namespace align_reads
             }
 
             std::cout << "ovlp " << ovlp_len << std::endl;
-            if (ovlp_len <= 100) {
-                num_100++;         
+            if (ovlp_len <= 100)
+            {
+                num_100++;
                 std::cout << "cat 100" << std::endl;
-
-            } else if (ovlp_len <= 200) {
+            }
+            else if (ovlp_len <= 200)
+            {
                 num_200++;
 
                 std::cout << "cat 200" << std::endl;
-            } else if (ovlp_len <= 300) {
-                num_300++;         
+            }
+            else if (ovlp_len <= 300)
+            {
+                num_300++;
                 std::cout << "cat 300" << std::endl;
-            } else if (ovlp_len <= 400) {
-                num_400++;         
+            }
+            else if (ovlp_len <= 400)
+            {
+                num_400++;
                 std::cout << "cat 400" << std::endl;
-            } else if (ovlp_len <= 500) {
+            }
+            else if (ovlp_len <= 500)
+            {
                 num_500++;
                 std::cout << "cat 500" << std::endl;
-            } else if (ovlp_len <= 1000) {
+            }
+            else if (ovlp_len <= 1000)
+            {
                 num_1000++;
                 std::cout << "cat 1000" << std::endl;
-            } else if (ovlp_len <= 2000) {
+            }
+            else if (ovlp_len <= 2000)
+            {
                 num_2000++;
 
                 std::cout << "cat 2000" << std::endl;
-            } else if (ovlp_len <= 4000) {
+            }
+            else if (ovlp_len <= 4000)
+            {
                 num_4000++;
 
                 std::cout << "cat 4000" << std::endl;
-            } else if (ovlp_len <= 10000) {
+            }
+            else if (ovlp_len <= 10000)
+            {
                 num_10000++;
 
                 std::cout << "cat 10000" << std::endl;
-            } else {
+            }
+            else
+            {
                 more++;
 
                 std::cout << "cat more" << std::endl;
             }
-
-
-
-
-
 
             std::cout << "query name: " << o_info.query_info.name << std::endl;
             std::cout << "target name: " << o_info.target_info.name << std::endl;
@@ -2058,7 +2080,7 @@ namespace align_reads
         }
         std::cout << "(0, 100]: " << num_100 << std::endl;
         std::cout << "(100, 200]: " << num_200 << std::endl;
-        std::cout << "(200, 300]: " << num_300 << std::endl;        
+        std::cout << "(200, 300]: " << num_300 << std::endl;
         std::cout << "(300, 400]: " << num_400 << std::endl;
         std::cout << "(400, 500]: " << num_500 << std::endl;
         std::cout << "(500, 1000]: " << num_1000 << std::endl;
@@ -2448,7 +2470,6 @@ namespace align_reads
         std::uint32_t min_large = 10000;
         double min_norm_dist = 1;
 
-
         // true positives
         for (auto &o_info : filtered_t)
         {
@@ -2458,23 +2479,31 @@ namespace align_reads
             if (o_info.is_reverse)
                 query_sequence->ReverseAndComplement();
 
-
-            
             std::uint32_t large_extend_q = std::max(o_info.query_info.left_extend, o_info.query_info.right_extend);
             std::uint32_t large_extend_t = std::max(o_info.target_info.left_extend, o_info.target_info.right_extend);
             std::uint32_t large_extend = std::max(large_extend_q, large_extend_t);
-            if (large_extend < 100) {
-                std::cout << "< 100" << std::endl;       
-            } else if (large_extend < 200) {
+            if (large_extend < 100)
+            {
+                std::cout << "< 100" << std::endl;
+            }
+            else if (large_extend < 200)
+            {
                 std::cout << "< 200" << std::endl;
-            } else if (large_extend < 300) {
+            }
+            else if (large_extend < 300)
+            {
                 std::cout << "< 300" << std::endl;
-            } else if (large_extend < 400) {
+            }
+            else if (large_extend < 400)
+            {
                 std::cout << "< 400" << std::endl;
-            } else if (large_extend < 500) {
+            }
+            else if (large_extend < 500)
+            {
                 std::cout << "< 500" << std::endl;
-            } 
-            if (large_extend < min_large) min_large = large_extend;
+            }
+            if (large_extend < min_large)
+                min_large = large_extend;
             std::uint32_t left_overhang = o_info.q_o_begin - o_info.q_clip_left;
             std::uint32_t right_overhang = query_sequence->inflated_len - o_info.q_clip_right - o_info.q_o_end;
             // double bad_left_ratio = (double) left_overhang / (query_sequence->inflated_len - o_info.q_clip_left - o_info.q_clip_right);
@@ -2502,12 +2531,13 @@ namespace align_reads
             total_hang_ratio += hang_ratio;
             std::uint32_t target_string_len = target_sequence->inflated_len - o_info.t_clip_left - o_info.t_clip_right;
             std::string target_string = target_sequence->InflateData(o_info.t_clip_left, target_string_len);
-            std::string query_string = query_sequence->InflateData(o_info.q_clip_left, query_string_len); 
+            std::string query_string = query_sequence->InflateData(o_info.q_clip_left, query_string_len);
             EdlibAlignResult result = edlibAlign(query_string.c_str(), query_string.size(),
                                                  target_string.c_str(), target_string.size(),
                                                  edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_PATH, NULL, 0));
             double norm_dist = (double)result.editDistance / query_string_len;
-            if (norm_dist < min_norm_dist) min_norm_dist = norm_dist;
+            if (norm_dist < min_norm_dist)
+                min_norm_dist = norm_dist;
             total_norm_dist += norm_dist;
 
             std::vector<std::string> overlapping_reads;
@@ -2533,9 +2563,9 @@ namespace align_reads
             std::cout << "right overhang: " << right_overhang << std::endl;
             // std::cout << "q_o_left: " << o_info.q_o_left << " query_o_right: " << o_info.q_o_right << std::endl;
             // std::cout << "t_o_left: " << o_info.t_o_left << " target_o_right: " << o_info.t_o_right << std::endl;
-            
+
             alignment.print();
-            
+
             if (o_info.is_reverse)
                 query_sequence->ReverseAndComplement();
         }
@@ -2767,9 +2797,7 @@ namespace align_reads
         {
             return s1->inflated_len > s2->inflated_len;
         };
-
-
-        std::random_shuffle(sequences.begin(), sequences.end());
+        //std::random_shuffle(sequences.begin(), sequences.end());
 
         id_to_pos_index.resize(sequences.size());
         std::uint32_t pos_index = 0;

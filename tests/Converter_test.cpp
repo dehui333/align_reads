@@ -14,6 +14,7 @@
 
 using namespace align_reads;
 
+//disabled test(s) here
 
 /*
  *
@@ -885,7 +886,7 @@ TEST(Converter, trim_window)
     EXPECT_EQ(*value_ptr, PAD_CODE); 
 }
 /*
-I don't know why this is problematic on github action tests
+//I don't know why this is problematic on github action tests
 TEST(Converter, produce_truth_matrices)
 {
     PyInit_align_reads_gen();  

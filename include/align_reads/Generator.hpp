@@ -22,8 +22,8 @@ namespace align_reads
     public:
         Generator(std::vector<std::string> &reads0, std::vector<std::string> &reads1,
                   std::vector<std::string> &haplotype0, std::vector<std::string> &haplotype1,
-                  std::shared_ptr<thread_pool::ThreadPool> &pool);
-        Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> &pool);
+                  std::shared_ptr<thread_pool::ThreadPool> pool);
+        Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool);
 
         Data produce_data();
 
@@ -33,7 +33,7 @@ namespace align_reads
         std::uint32_t start_of_reads1 = 0; // id from which second set of reads start from
         std::uint32_t current_target = 0; // may need atomic if parallelize?
 
-        std::shared_ptr<thread_pool::ThreadPool> pool = nullptr; // pool of workers
+        std::shared_ptr<thread_pool::ThreadPool> pool; // pool of workers
         Inputs inputs; // Stores input sequences
         Overlapper overlapper;
         

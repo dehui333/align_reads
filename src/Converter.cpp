@@ -224,6 +224,7 @@ namespace align_reads
         data.Xs = produce_alignment_matrices(chosen, pool);
         if (with_labels)
         {
+            // TODO
             // attach label info to the struct
         }
         return data;

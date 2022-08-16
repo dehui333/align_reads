@@ -13,6 +13,7 @@ const char *reads0_path = "../test_data/fake_reads0.fasta";
 const char *align_reverse_path = "../test_data/align_reverse.fasta";
 
 using namespace align_reads;
+//disabled test(s) here
 
 TEST(Aligner, get_edlib_results)
 {

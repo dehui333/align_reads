@@ -6,10 +6,17 @@
 
 #include "include/align_reads/aligner.hpp"
 
+// -Need to persist over python level calls
+// -Too large for multiprocessing, do parallelizing in C++ layer 
 static align_reads::Aligner *gen = nullptr;
 
 #define THREADS 20
 
+/* Take in inputs and initialize the Generator object
+Expected input format on python level:
+Currently, just let it be a list of arbitrary length 
+
+*/
 static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
     if (gen == nullptr) {
         PyObject *read_paths_list, *hap_paths_list, *item;
@@ -50,7 +57,7 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
     Py_RETURN_NONE;    
 }
 
-// Module method definitions
+// return features. Maybe modified to fit needs
 static PyObject* generate_features_cpp(PyObject *self, PyObject *args) {
     align_reads::Data data = gen->next();
     // Creates tuple to return to python level
@@ -75,7 +82,7 @@ static PyObject* generate_features_cpp(PyObject *self, PyObject *args) {
     return return_tuple;
 }
 
-
+// free memory. 
 static PyObject* cleanup_cpp(PyObject *self, PyObject *args) {
     delete gen;
     gen = nullptr;

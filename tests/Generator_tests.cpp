@@ -3,6 +3,7 @@
 #define private public
 #include "../src/Generator.cpp"
 
+
 extern const char* fastq_path;
 extern const char* fasta_path;
 extern std::shared_ptr<thread_pool::ThreadPool> pool;

@@ -18,5 +18,6 @@ build/libalign_reads.a: build/Makefile src/aligner.cpp tests/Inputs_tests.cpp
 build/Makefile: bioparser/CMakeLists.txt CMakeLists.txt
 	. align_reads_venv/bin/activate; cmake -S . -B build/
 
-
-	
+rebuild:  
+	cmake --build build/
+	. align_reads_venv/bin/activate; python3 setup.py build_ext -f; python3 setup.py install

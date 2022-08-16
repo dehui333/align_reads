@@ -20,6 +20,7 @@ namespace align_reads
     class Generator
     {
     public:
+        // The arguments are vector of paths to the sequences
         Generator(std::vector<std::string> &reads0, std::vector<std::string> &reads1,
                   std::vector<std::string> &haplotype0, std::vector<std::string> &haplotype1,
                   std::shared_ptr<thread_pool::ThreadPool> pool);

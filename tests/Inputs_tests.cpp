@@ -4,7 +4,7 @@
 
 #include "../src/Inputs.cpp"
 
-std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
+//std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(10);
 const char* fastq_path = "../test_data/reads.fastq";
 const char* fasta_path = "../test_data/reads.fasta";

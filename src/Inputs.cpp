@@ -11,7 +11,7 @@
  *   -> Beware of counter variable biosoup::NucleicAcid::num_objects
  *
  */
-
+std::atomic<std::uint32_t> biosoup::NucleicAcid::num_objects{0};
 namespace align_reads
 {
     auto is_suffix = [](const std::string &s, const std::string &suff)

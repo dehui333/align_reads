@@ -8,6 +8,52 @@
 
 namespace align_reads
 {
+    bool AlignmentSegment::AlignmentIterator::has_next()
+    {
+        return current_target_index <= segment->end_on_target;
+    }
+
+    aligned_pos AlignmentSegment::AlignmentIterator::next()
+    {
+        if (current_ins_index == 0)
+        {
+            aligned_pos r{segment->aligned_chars[current_target_index - segment->start_on_target], current_target_index, current_ins_index};
+            if (current_ins_index == current_max_ins)
+            {
+                current_target_index++;
+                current_ins_index = 0;
+                current_max_ins = segment->ins_segments[current_target_index - segment->start_on_target + 1].size();
+            }
+            else
+            {
+                current_ins_index++;
+            }
+            return r;
+        }
+        else
+        {
+
+            aligned_pos r{segment->ins_segments[current_target_index - segment->start_on_target + 1][current_ins_index - 1], current_target_index, current_ins_index};
+            if (current_ins_index == current_max_ins)
+            {
+                current_target_index++;
+                current_ins_index = 0;
+                current_max_ins = segment->ins_segments[current_target_index - segment->start_on_target + 1].size();
+            }
+            else
+            {
+                current_ins_index++;
+            }
+            return r;
+        }
+    }
+
+    AlignmentSegment::AlignmentIterator::AlignmentIterator(AlignmentSegment &segment, std::uint32_t start_t_idx, std::uint32_t start_i_idx)
+        : segment(&segment), current_target_index(start_t_idx), current_ins_index(start_i_idx)
+    {
+        current_max_ins = segment.ins_segments[start_t_idx - segment.start_on_target + 1].size();
+    }
+
     //-----------------AlignmentSegment---------------------------
 
     AlignmentSegment::AlignmentSegment(std::string &query, std::uint32_t q_start,

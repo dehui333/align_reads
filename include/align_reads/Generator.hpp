@@ -11,6 +11,10 @@
  * 
  * **> need to keep on producing features and keeping 
  *  an 'inventory' even when python level is doing work with a batch
+ * 
+ * 
+ * !!!!!!!!!!!!!!!!! try to move width index stuff to MultiAlignment and add
+ *  multi alignment aware printing functionality there
  */
 
 

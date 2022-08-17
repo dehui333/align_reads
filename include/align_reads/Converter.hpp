@@ -56,11 +56,8 @@ namespace align_reads
             Info* info_ptr;
             std::uint32_t matrix_width;
             std::uint32_t matrix_height;
-            // a mapping from 'width index' to 'pos index'
-            // width index: the column indices along the width of the alignment
-            // pos index: An index which takes into account which position is aligned
-            // to an existing base on the target and which are insertions etc
-            std::vector<std::pair<std::uint32_t, std::uint32_t>> width_idx_to_pos_idx;
+
+            //std::vector<std::pair<std::uint32_t, std::uint32_t>> width_idx_to_pos_idx;
 
             // specifies which segments falls into which of the windows
             std::vector<std::vector<std::uint32_t>> segments_in_windows; 

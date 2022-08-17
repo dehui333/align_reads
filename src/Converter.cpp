@@ -38,16 +38,48 @@ namespace align_reads
         : alignment_ptr(&alignment), matrix_width(matrix_width), matrix_height(matrix_height)
     {
         info_ptr = nullptr;
+        
         // The span of the alignment target (start/end) to consider may vary due 
         // to unreliable alignments at the ends etc
-        std::uint32_t start_on_target = 0; // start index on target from which to consider
-        std::uint32_t end_on_target = alignment_ptr->target.size() - 1; // inclusive end index
-
-        if (!alignment.truth_to_target.empty())
+        std::uint32_t start_on_target = alignment.start_on_target; // start index on target from which to consider
+        std::uint32_t end_on_target = alignment.end_on_target; // inclusive end index
+        
+        std::vector<std::uint32_t> target_pos_window_index;
+        target_pos_window_index.reserve(alignment.target.size());
+        target_pos_window_index.resize(start_on_target, -1);
+        std::uint32_t width = alignment.width_idx_to_pos_idx.size(); 
+        std::uint32_t i;
+        std::uint32_t j;
+        for (i = 0; i < width; i++)
         {
-            start_on_target = alignment.largest_truth_start;
-            end_on_target = alignment.smallest_truth_end;
+            auto index_pair = alignment.width_idx_to_pos_idx[i];
+            if (index_pair.second == 0)
+            {
+                target_pos_window_index.push_back(i/matrix_width);
+            }
         }
+
+        // record the segments that fall into each window
+        segments_in_windows.resize(width / matrix_width + (width % matrix_width == 0 ? 0 : 1));
+        i = 0;
+        for (auto &segment : alignment.alignment_segments)
+        {
+            std::uint32_t first_window = target_pos_window_index[std::max(segment.start_on_target, start_on_target)];
+            std::uint32_t last_window = target_pos_window_index[std::min(segment.end_on_target, end_on_target)];
+            for (j = first_window; j <= last_window; j++)
+            {
+                segments_in_windows[j].push_back(i);
+            }
+            i++;
+        }
+
+
+        /*
+        // The span of the alignment target (start/end) to consider may vary due 
+        // to unreliable alignments at the ends etc
+        std::uint32_t start_on_target = alignment.start_on_target; // start index on target from which to consider
+        std::uint32_t end_on_target = alignment.end_on_target; // inclusive end index
+
 
         std::uint32_t i = 0;
         std::uint32_t j = 0;
@@ -78,12 +110,8 @@ namespace align_reads
         std::vector<std::uint32_t> target_pos_window_index;
         target_pos_window_index.reserve(alignment_ptr->target.size());
         target_pos_window_index.resize(start_on_target, -1);
-        std::uint32_t total_width = end_on_target - start_on_target + 1;
         i = start_on_target;
-        while (i <= end_on_target)
-        {
-            total_width += max_ins_at_pos[i++];
-        }
+
         width_idx_to_pos_idx.reserve(end_on_target - start_on_target + 1);
         std::uint32_t width_index = 0;
         for (i = start_on_target; i <= end_on_target; i++)
@@ -97,6 +125,7 @@ namespace align_reads
                 width_index++;
             }
         }
+        
 
         // record the segments that fall into each window
         segments_in_windows.resize(width_index / matrix_width + (width_index % matrix_width == 0 ? 0 : 1));
@@ -111,6 +140,8 @@ namespace align_reads
             }
             i++;
         }
+        */
+        
         
     }
 
@@ -126,6 +157,7 @@ namespace align_reads
         uint8_t *value_ptr;
         std::uint16_t col_index = 0;
         std::uint32_t width_index = window * matrix_width;
+        auto& width_idx_to_pos_idx = alignment_ptr->width_idx_to_pos_idx;
         auto current_index = width_idx_to_pos_idx[width_index++];
         std::uint32_t target_index = current_index.first;
         std::uint32_t ins_index = current_index.second;
@@ -168,6 +200,7 @@ namespace align_reads
         uint8_t *value_ptr;
         std::uint16_t col_index = 0;
         std::uint32_t width_index = window * matrix_width;
+        auto& width_idx_to_pos_idx = alignment_ptr->width_idx_to_pos_idx;
         auto current_index = width_idx_to_pos_idx[width_index++];
         std::uint32_t target_index = current_index.first;
         std::uint32_t ins_index = current_index.second;
@@ -386,6 +419,7 @@ namespace align_reads
     void AlignmentConverter::print_alignments_in_window(std::uint32_t window)
     {
         std::uint32_t width_idx = window * matrix_width;
+        auto& width_idx_to_pos_idx = alignment_ptr->width_idx_to_pos_idx;
         auto index_pair = width_idx_to_pos_idx[width_idx];
         /*for (auto& s: alignment_ptr->alignment_segments)
         {

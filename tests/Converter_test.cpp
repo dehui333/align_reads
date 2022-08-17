@@ -161,36 +161,36 @@ TEST(Converter, Converter_ins)
     EXPECT_EQ(s3, a3);  
 
 
-    EXPECT_EQ(converter.width_idx_to_pos_idx[0].first, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[0].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[1].first, 1);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[1].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[2].first, 2);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[2].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[3].first, 2);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[3].second, 1);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[4].first, 3);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[4].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[5].first, 4);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[5].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[6].first, 5);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[6].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[7].first, 6);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[7].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[8].first, 7);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[8].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[9].first, 7);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[9].second, 1);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[10].first, 8);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[10].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[11].first, 9);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[11].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[12].first, 9);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[12].second, 1);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[13].first, 10);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[13].second, 0);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[14].first, 11);
-    EXPECT_EQ(converter.width_idx_to_pos_idx[14].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[0].first, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[0].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[1].first, 1);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[1].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[2].first, 2);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[2].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[3].first, 2);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[3].second, 1);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[4].first, 3);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[4].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[5].first, 4);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[5].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[6].first, 5);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[6].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[7].first, 6);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[7].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[8].first, 7);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[8].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[9].first, 7);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[9].second, 1);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[10].first, 8);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[10].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[11].first, 9);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[11].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[12].first, 9);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[12].second, 1);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[13].first, 10);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[13].second, 0);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[14].first, 11);
+    EXPECT_EQ(converter.alignment_ptr->width_idx_to_pos_idx[14].second, 0);
 }
 
 TEST(Converter, numpy_array)

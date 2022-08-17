@@ -4,6 +4,7 @@
 #include "align_reads/MultiAlignment.hpp"
 #include "align_reads/Utilities.hpp"
 
+#include <iostream>
 namespace align_reads
 {
 
@@ -49,22 +50,22 @@ namespace align_reads
         
         // align the target with overlapping 
         auto align_results = align_overlaps(overlaps, overlaps.size(), inputs, target_string, pool, READS_GROUP);
-        
         // transform overlapping to targets align results into AlignmentSegment 
         auto futures = Futures<AlignmentSegment>(pool, align_results.size());
+        for (auto& result : align_results)
+        {
+            futures.add_inputs(get_alignment_segment2, result, target_string);
+        }
         std::vector<AlignmentSegment> segments = futures.get();
-
         // put into MultiAlignment
         // currently no truth alignments used
         // TODO: add truth info if exist
         MultiAlignment multi_align {std::move(target_string), std::move(segments)};
-
         // Give MultiAlignment to AlignmentConverter
         // currently no additional info on aligned reads given
         // TODO: 1. add option to find them and input
         //       2. Add option for changing height and width of matrix
         AlignmentConverter converter {multi_align, 5, 10};
-
         // produce features
         // 
         Data data = converter.produce_data(pool, false);

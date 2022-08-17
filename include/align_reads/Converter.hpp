@@ -14,6 +14,8 @@
 /*
  * Takes alignment objects and produce feature matrices.
  * - exposes inner implementation of some stuff in Aligner.
+ * 
+ *  
  */
 
 namespace align_reads 
@@ -41,6 +43,9 @@ namespace align_reads
 
             // input feature matrices 
             Data produce_data(std::shared_ptr<thread_pool::ThreadPool> &pool, bool with_labels=false);
+            
+
+            void print_alignments_in_window(std::uint32_t window);
 
             
 

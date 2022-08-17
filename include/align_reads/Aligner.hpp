@@ -76,7 +76,7 @@ namespace align_reads
                                            std::string &target, std::uint32_t t_start, std::uint32_t t_len,
                                            EdlibAlignMode mode, EdlibAlignTask task);
 
-    AlignmentSegment get_alignment_segment2(clipped_alignment<EdlibAlignResult>& result, std::string target_string);
+    AlignmentSegment get_alignment_segment2(clipped_alignment<EdlibAlignResult>& result, std::string& target_string);
                                            
 
 } // namespace align_reads

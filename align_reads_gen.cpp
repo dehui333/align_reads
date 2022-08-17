@@ -81,14 +81,12 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         {
             // Not split into haplotypes
             auto paths = convert_strings_in_pylist(paths_list, 0);
-            auto generator = Generator(paths, pool);
-            gen = &generator;
+            gen = new Generator(paths, pool);
 
         } else 
         {
 
         }
-        std::cout <<"HI" << std::endl;
     }
     
 
@@ -161,15 +159,22 @@ static PyObject *generate_features_cpp(PyObject *self, PyObject *args)
     PyTuple_SetItem(return_tuple, 1, Y_list);
 
     return return_tuple;*/
-    Py_RETURN_NONE;
+    //Get a batch of feature data 
+    Data data = gen->produce_data();
+    // Create lists of matrices
+    PyObject* X_list = PyList_New(data.Xs.size());
+    for (std::uint32_t i = 0; i < data.Xs.size(); i++) {
+        PyList_SetItem(X_list, i, data.Xs[i]);
+    }
+    //Py_RETURN_NONE;
+    return X_list;
 }
 
 // free memory.
 static PyObject *cleanup_cpp(PyObject *self, PyObject *args)
 {
-    /*delete gen;
+    delete gen;
     gen = nullptr;
-    Py_RETURN_NONE;*/
     Py_RETURN_NONE;
 }
 

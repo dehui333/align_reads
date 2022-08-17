@@ -8,6 +8,9 @@
 /*
  * Issues:
  * 1. Add haplotype label to AlignmentSegment & target sequence
+ * 
+ * **> need to keep on producing features and keeping 
+ *  an 'inventory' even when python level is doing work with a batch
  */
 
 

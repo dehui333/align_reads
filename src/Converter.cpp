@@ -196,7 +196,7 @@ namespace align_reads
             *value_ptr = PAD_CODE;
         }
     }
-
+    
     std::vector<std::vector<std::uint32_t>> AlignmentConverter::choose_segments(std::uint32_t num_reserved_for_target, bool sample_target)
     {
         std::vector<std::vector<std::uint32_t>> result;
@@ -221,6 +221,18 @@ namespace align_reads
     {
         std::vector<std::vector<std::uint32_t>> chosen = choose_segments(ROWS_FOR_TARGET, SAMPLE_TARGET);
         Data data;
+        /*
+        std::cout << "chosen in window 0 " << std::endl;
+        for (auto i: chosen[0])
+        {
+            std::cout << i << std::endl;
+        }
+        std::cout << "segments in window :" << std::endl;
+        for (auto i : segments_in_windows[0])
+        {
+            std::cout << "segment " << i << std::endl;
+            alignment_ptr->alignment_segments[i].print(alignment_ptr->target);
+        }*/
         data.Xs = produce_alignment_matrices(chosen, pool);
         if (with_labels)
         {
@@ -297,7 +309,6 @@ namespace align_reads
             }
             futures.finish();
         }
-
         return Xs;
     }
 
@@ -370,6 +381,16 @@ namespace align_reads
         }
 
         return Ys;
+    }
+
+    void AlignmentConverter::print_alignments_in_window(std::uint32_t window)
+    {
+        std::uint32_t width_idx = window * matrix_width;
+        auto index_pair = width_idx_to_pos_idx[width_idx];
+        /*for (auto& s: alignment_ptr->alignment_segments)
+        {
+
+        }*/
     }
 
 } // namespace align_reads

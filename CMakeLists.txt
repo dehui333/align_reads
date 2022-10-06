@@ -109,6 +109,7 @@ add_executable(
   tests/Utilities_test.cpp
   tests/Converter_test.cpp
   tests/AlignmentSegment_test.cpp
+  tests/MultiAlignment_test.cpp
 )
 target_link_libraries(
   tests

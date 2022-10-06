@@ -6,6 +6,8 @@
 // ** Maybe can have iterator over each segment under the context of all the segments
 // - will include positions where some segments have gaps and some have non gap chars.
 
+//iterator over target string taking into account gaps due to ins over all aligned?
+
 namespace align_reads
 {
 
@@ -19,13 +21,34 @@ namespace align_reads
 
         MultiAlignment(std::string &&target, std::vector<AlignmentSegment> &&segments, std::vector<AlignmentSegment> &&truth);
 
+        class MultiAlignmentIterator
+        {
+        public:
+            bool has_next();
+            char next();
+
+
+            MultiAlignmentIterator(std::uint32_t start_width_idx, 
+                AlignmentSegment& segment, std::vector<std::pair<std::uint32_t, std::uint32_t>>& width_idx_to_pos_idx);
+
+        private:
+            std::uint32_t width_idx;
+            std::vector<std::pair<std::uint32_t, std::uint32_t>> &width_idx_to_pos_idx;
+            AlignmentSegment::AlignmentIterator iter;
+            bool withholding = false;
+            std::uint32_t waiting_for;
+            char stored_char;
+        };
+
+        MultiAlignmentIterator iterator(std::uint32_t alignment_idx, std::uint32_t start_width_idx);
+
     private:
         std::string target; // The target sequence
         std::vector<AlignmentSegment> alignment_segments;
         std::vector<AlignmentSegment> truth_to_target;
-        //std::uint32_t largest_truth_start;
-        //std::uint32_t smallest_truth_end;
-        // Restricts the effective span to span with truth alignment
+        // std::uint32_t largest_truth_start;
+        // std::uint32_t smallest_truth_end;
+        //  Restricts the effective span to span with truth alignment
         std::uint32_t start_on_target;
         std::uint32_t end_on_target;
 
@@ -39,8 +62,6 @@ namespace align_reads
 
         void initialize();
     };
-
-
 
 } // namespace align_reads
 

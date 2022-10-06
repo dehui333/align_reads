@@ -32,9 +32,23 @@ namespace align_reads
         }
         else
         {
+            aligned_pos r;
+            if (current_ins_index > current_max_ins)
+            {
+                //should throw exception
+                r.c = PAD_CHAR;
+                r.target_index = current_target_index;
+                r.ins_index = current_ins_index;
+            }
+            else
+            {
+                // aligned_pos r{segment->ins_segments[current_target_index - segment->start_on_target + 1][current_ins_index - 1], current_target_index, current_ins_index};
+                r.c = segment->ins_segments[current_target_index - segment->start_on_target + 1][current_ins_index - 1];
+                r.target_index = current_target_index;
+                r.ins_index = current_ins_index;
+            }
 
-            aligned_pos r{segment->ins_segments[current_target_index - segment->start_on_target + 1][current_ins_index - 1], current_target_index, current_ins_index};
-            if (current_ins_index == current_max_ins)
+            if (current_ins_index >= current_max_ins)
             {
                 current_target_index++;
                 current_ins_index = 0;
@@ -53,6 +67,7 @@ namespace align_reads
     {
         current_max_ins = segment.ins_segments[start_t_idx - segment.start_on_target + 1].size();
     }
+
 
     //-----------------AlignmentSegment---------------------------
 

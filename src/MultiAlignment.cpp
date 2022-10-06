@@ -1,5 +1,7 @@
 #include "align_reads/MultiAlignment.hpp"
 
+#define GAP_CHAR '_'
+#define PAD_CHAR '*'
 namespace align_reads
 {
 
@@ -80,4 +82,56 @@ namespace align_reads
             }
         }
     }
+    MultiAlignment::MultiAlignmentIterator::MultiAlignmentIterator(std::uint32_t start_width_idx,
+                                                                   AlignmentSegment &segment, std::vector<std::pair<std::uint32_t, std::uint32_t>> &width_idx_to_pos_idx)
+        : width_idx(start_width_idx), width_idx_to_pos_idx(width_idx_to_pos_idx), iter(segment, segment.start_on_target, 0) {}
+
+    char MultiAlignment::MultiAlignmentIterator::next()
+    {
+        if (withholding)
+        {
+            std::pair<std::uint32_t, std::uint32_t> &next_pos_idx = width_idx_to_pos_idx[width_idx++];
+            if (next_pos_idx.first == waiting_for)
+            {
+                withholding = false;
+                return stored_char;
+            }
+            else
+            {
+                return GAP_CHAR;
+            }
+        }
+        else
+        {
+            if (iter.has_next())
+            {
+                std::pair<std::uint32_t, std::uint32_t> &next_pos_idx = width_idx_to_pos_idx[width_idx++];
+                aligned_pos possible_next = iter.next();
+                if (possible_next.target_index != next_pos_idx.first)
+                {
+                    withholding = true;
+                    stored_char = possible_next.c;
+                    waiting_for = possible_next.target_index;
+                    return GAP_CHAR;
+                }
+                return possible_next.c;
+            }
+            else
+            {
+                width_idx++;
+                return GAP_CHAR;
+            }
+        }
+    }
+
+    bool MultiAlignment::MultiAlignmentIterator::has_next()
+    {
+        return width_idx < width_idx_to_pos_idx.size();
+    }
+
+    MultiAlignment::MultiAlignmentIterator MultiAlignment::iterator(std::uint32_t alignment_idx, std::uint32_t start_width_idx)
+    {
+        return {start_width_idx, alignment_segments[alignment_idx], width_idx_to_pos_idx};
+    }
+
 } // namespace align_reads

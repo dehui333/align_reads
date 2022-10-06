@@ -6,6 +6,10 @@
 
 #include "edlib.h"
 
+/*
+iterator over target string?
+*/
+
 namespace align_reads
 {
     // contains an aligned char and its index.
@@ -22,6 +26,7 @@ namespace align_reads
             if (o.ins_index != ins_index) return false;
             return true;
         }
+        aligned_pos() = default;
 
     };
 
@@ -39,7 +44,6 @@ namespace align_reads
             aligned_pos next();
          
             AlignmentIterator(AlignmentSegment &segment, std::uint32_t start_t_idx, std::uint32_t start_i_idx);
-
         private:
             AlignmentSegment* segment;
             std::uint32_t current_target_index;

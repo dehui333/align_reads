@@ -8,7 +8,7 @@
 
 using namespace align_reads;
 
-// -Need to persist over python level calls
+// -Need to persist over multiple python level calls
 // -Too large for multiprocessing, do parallelizing in C++ layer
 static align_reads::Generator *gen = nullptr;
 
@@ -23,7 +23,7 @@ inline static std::vector<std::string> convert_strings(PyObject *strings_list)
 {
     std::vector<std::string> result;
     auto len = PyList_Size(strings_list);
-    PyObject* item;
+    PyObject *item;
     for (Py_ssize_t i = 0; i < len; i++)
     {
         item = PyList_GetItem(strings_list, i);
@@ -35,17 +35,17 @@ inline static std::vector<std::string> convert_strings(PyObject *strings_list)
 }
 
 // convert a list of strings at position i of a python list
-inline static std::vector<std::string> convert_strings_in_pylist(PyObject* list, Py_ssize_t i)
+inline static std::vector<std::string> convert_strings_in_pylist(PyObject *list, Py_ssize_t i)
 {
-    PyObject* item;
+    PyObject *item;
     item = PyList_GetItem(list, i);
     return convert_strings(item);
 }
 
 // convert a string at position i of a python list
-inline static std::string convert_string_in_pylist(PyObject* list, Py_ssize_t i)
+inline static std::string convert_string_in_pylist(PyObject *list, Py_ssize_t i)
 {
-    PyObject* item;
+    PyObject *item;
     item = PyList_GetItem(list, i);
     return convert_string(item);
 }
@@ -57,7 +57,7 @@ Currently, just let it be a list of arbitrary length
 */
 static PyObject *initialize_cpp(PyObject *self, PyObject *args)
 {
-    
+
     if (gen == nullptr)
     {
         // will be a list of list of strings
@@ -73,22 +73,21 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
 
         // Get length
         auto len = PyList_Size(paths_list);
-        if (len == 0) return NULL;
+        if (len == 0)
+            return NULL;
 
         std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(num_threads);
-        
+
         if (len == 1)
         {
             // Not split into haplotypes
             auto paths = convert_strings_in_pylist(paths_list, 0);
             gen = new Generator(paths, pool);
-
-        } else 
+        }
+        else
         {
-
         }
     }
-    
 
     Py_RETURN_NONE;
 }
@@ -159,14 +158,15 @@ static PyObject *generate_features_cpp(PyObject *self, PyObject *args)
     PyTuple_SetItem(return_tuple, 1, Y_list);
 
     return return_tuple;*/
-    //Get a batch of feature data 
+    // Get a batch of feature data
     Data data = gen->produce_data();
     // Create lists of matrices
-    PyObject* X_list = PyList_New(data.Xs.size());
-    for (std::uint32_t i = 0; i < data.Xs.size(); i++) {
+    PyObject *X_list = PyList_New(data.Xs.size());
+    for (std::uint32_t i = 0; i < data.Xs.size(); i++)
+    {
         PyList_SetItem(X_list, i, data.Xs[i]);
     }
-    //Py_RETURN_NONE;
+    // Py_RETURN_NONE;
     return X_list;
 }
 

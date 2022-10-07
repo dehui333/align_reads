@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "align_reads/MultiAlignment.hpp"
 
 #define GAP_CHAR '_'
@@ -132,6 +134,51 @@ namespace align_reads
     MultiAlignment::MultiAlignmentIterator MultiAlignment::iterator(std::uint32_t alignment_idx, std::uint32_t start_width_idx)
     {
         return {start_width_idx, alignment_segments[alignment_idx], width_idx_to_pos_idx};
+    }
+
+    MultiAlignment::MultiAlignmentIterator MultiAlignment::target_iterator(AlignmentSegment &target_segment, std::uint32_t start_width_idx)
+    {
+        return {start_width_idx, target_segment, width_idx_to_pos_idx};
+    }
+
+    void MultiAlignment::print_in_window(std::uint32_t start_width_index, std::uint32_t len)
+    {
+        AlignmentSegment target_segment{this->target};
+        MultiAlignmentIterator target_iter = target_iterator(target_segment, start_width_index);
+        std::uint32_t i = 0;
+        std::string buffer;
+        buffer.reserve(len);
+        
+        for (; i < len; i++)
+        {
+            if (target_iter.has_next())
+            {
+                buffer.push_back(target_iter.next());
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        std::cout << buffer << std::endl;
+        for (std::uint32_t j = 0; j < alignment_segments.size(); j++)
+        {
+            buffer.clear();
+            MultiAlignmentIterator iter = iterator(j, start_width_index);
+            for (i = 0; i < len; i++)
+            {
+                if (iter.has_next())
+                {
+                    buffer.push_back(iter.next());
+                }
+                else
+                {
+                    break;
+                }
+            }
+            std::cout << buffer << std::endl;
+        }
     }
 
 } // namespace align_reads

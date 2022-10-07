@@ -23,7 +23,8 @@ TEST(MultiAlignment, basic_test)
     futures.add_inputs(get_alignment_segment, q3, 0, 10, t, 0, 12, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
     std::vector<AlignmentSegment> segments = futures.get();
     MultiAlignment ma{std::move(t), std::move(segments)};
-    
+
+    /*    
     for (std::uint32_t i = 0; i < 3; i++)
     {
         auto it = ma.iterator(i, 0);
@@ -33,7 +34,7 @@ TEST(MultiAlignment, basic_test)
             s.push_back(it.next());
         }
         std::cout << s << std::endl;
-    }
+    }*/
     
 
     auto it = ma.iterator(0, 0);
@@ -180,4 +181,24 @@ TEST(MultiAlignment, basic_test)
     EXPECT_EQ(it3.next(), GAP_CHAR);
 
     EXPECT_FALSE(it3.has_next());   
+}
+
+TEST(MultiAlignment, print)
+{
+    std::string t  = "TAGGCATACAGG";
+    std::string q1 = "TAGTG";
+    std::string q2 = "CAACATGGAAAA";
+    std::string q3 = "TGGCATATCA";
+    // TAG_|GCAT|A_CA|_GG
+
+    Futures<AlignmentSegment> futures(pool, 3);
+    futures.add_inputs(get_alignment_segment, q1, 0, 5, t, 0, 4, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q2, 0, 8, t, 4, 8, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    futures.add_inputs(get_alignment_segment, q3, 0, 10, t, 0, 12, EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+    std::vector<AlignmentSegment> segments = futures.get();
+    MultiAlignment ma{std::move(t), std::move(segments)};
+    
+  
+    ma.print_in_window(0, 5);
+    
 }

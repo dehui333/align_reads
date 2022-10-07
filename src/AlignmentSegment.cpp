@@ -70,6 +70,13 @@ namespace align_reads
 
 
     //-----------------AlignmentSegment---------------------------
+    AlignmentSegment::AlignmentSegment(std::string &target)
+    {
+        this->aligned_chars = target;
+        this->start_on_target = 0;
+        this->end_on_target = target.size() - 1;
+        this->ins_segments.resize(target.size() + 1);
+    }
 
     AlignmentSegment::AlignmentSegment(std::string &query, std::uint32_t q_start,
                                        std::string &target, std::uint32_t t_start,

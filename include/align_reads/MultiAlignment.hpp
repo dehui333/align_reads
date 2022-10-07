@@ -6,7 +6,7 @@
 // ** Maybe can have iterator over each segment under the context of all the segments
 // - will include positions where some segments have gaps and some have non gap chars.
 
-//iterator over target string taking into account gaps due to ins over all aligned?
+//iterator over target string taking into account gaps due to ins over all aligned? (which will include pairwise)
 
 namespace align_reads
 {
@@ -41,6 +41,9 @@ namespace align_reads
         };
 
         MultiAlignmentIterator iterator(std::uint32_t alignment_idx, std::uint32_t start_width_idx);
+        MultiAlignmentIterator target_iterator(AlignmentSegment& target_segment, std::uint32_t start_width_idx);
+
+        void print_in_window(std::uint32_t start_width_index, std::uint32_t length);
 
     private:
         std::string target; // The target sequence

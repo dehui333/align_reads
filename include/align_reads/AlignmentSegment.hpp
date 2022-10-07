@@ -6,9 +6,7 @@
 
 #include "edlib.h"
 
-/*
-iterator over target string?
-*/
+
 
 namespace align_reads
 {
@@ -62,6 +60,10 @@ namespace align_reads
                           std::uint32_t q_start, std::uint32_t t_start,
                           std::uint32_t q_len, std::uint32_t t_len,
                            EdlibAlignMode mode, EdlibAlignTask task);*/
+        
+        // To get an alignment representation of the target itself
+        // mostly for printing
+        AlignmentSegment(std::string& target);
 
         // Get the characters (possibily '_' ) aligned to the target segment.
         std::string &get_aligned_chars();
@@ -87,8 +89,8 @@ namespace align_reads
         std::uint32_t start_on_target; // The start index of the aligned segment on the target, 0-based
         std::uint32_t end_on_target;   // The end index, 0-based, inclusive
         std::string aligned_chars;
-        std::vector<std::string> ins_segments;
-
+        std::vector<std::string> ins_segments; // index 0 is ins before target, maybe move to last index
+                                              // since it is not really used
         friend class MultiAlignment;
         friend class AlignmentConverter;
         };

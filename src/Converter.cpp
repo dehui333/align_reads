@@ -12,7 +12,7 @@
 #define ROWS_FOR_TARGET 0  // Reserve this number of rows for the target seq in each matrix
 #define SAMPLE_TARGET true // Do we sample the target seq too when filling matrix?
 #define MIN_ALIGNED 1 // Min number of aligned segments for a window's matrix to be used
-
+#define MAX_UINT32 static_cast<std::uint32_t>(-1)
 namespace align_reads
 {
 
@@ -234,17 +234,27 @@ namespace align_reads
     {
         std::vector<std::vector<std::uint32_t>> result;
         result.resize(segments_in_windows.size());
-        std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
+        
         for (std::uint32_t i = 0; i < segments_in_windows.size(); i++)
         {
             if (segments_in_windows[i].size() < MIN_ALIGNED)
                 continue; // if no segment falls into this window
+            std::uint32_t num_alignments_in_window = segments_in_windows[i].size();
             result[i].reserve(matrix_height);
-            result[i].resize(num_reserved_for_target, num_alignment);
-            std::uint32_t num_choices = sample_target ? num_alignment + 1 : num_alignment;
+            result[i].resize(num_reserved_for_target, num_alignments_in_window);
+            std::uint32_t num_choices = sample_target ? num_alignments_in_window + 1 : num_alignments_in_window;
             for (std::uint32_t j = 0; j < matrix_height - num_reserved_for_target; j++)
             {
-                result[i].push_back(rand() % num_choices);
+                std::uint16_t random_number = static_cast<std::uint16_t>(rand() % num_choices);
+                if (random_number == num_alignments_in_window)
+                {
+                    result[i].push_back(-1);
+                }
+                else
+                {
+                    result[i].push_back(segments_in_windows[i][random_number    ]);
+                }
+                
             }
         }
         return result;
@@ -277,7 +287,7 @@ namespace align_reads
 
     std::vector<PyObject *> AlignmentConverter::produce_alignment_matrices(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
-        std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
+        //std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
         npy_intp dims[2];
         dims[0] = matrix_height;
         dims[1] = matrix_width;
@@ -297,7 +307,7 @@ namespace align_reads
             uint32_t row_idx = 0;
             for (auto alignment_idx : alignment_indices)
             {
-                if (alignment_idx == num_alignment)
+                if (alignment_idx == MAX_UINT32)
                 {
                     this->fill_row_from_target(Xs[matrix_idx], window_index, row_idx++);
                 }
@@ -318,7 +328,7 @@ namespace align_reads
                 row_idx = 0;
                 for (auto alignment_idx : chosen[i])
                 {
-                    if (alignment_idx == num_alignment)
+                    if (alignment_idx == MAX_UINT32)
                     {
                         fill_row_from_target(Xs[m_idx], i, row_idx++);
                     }
@@ -347,7 +357,7 @@ namespace align_reads
 
     std::vector<PyObject *> AlignmentConverter::produce_truth_matrices(std::vector<std::vector<std::uint32_t>> &chosen, std::shared_ptr<thread_pool::ThreadPool> &pool)
     {
-        std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
+        //std::uint32_t num_alignment = alignment_ptr->alignment_segments.size();
         npy_intp dims[2];
         dims[0] = matrix_height;
         dims[1] = matrix_width;
@@ -367,7 +377,7 @@ namespace align_reads
             uint32_t row_idx = 0;
             for (auto alignment_idx : alignment_indices)
             {
-                if (alignment_idx == num_alignment)
+                if (alignment_idx == MAX_UINT32)
                 {
                     this->fill_row_from_alignment(Ys[matrix_idx], window_index, row_idx++, alignment_ptr->truth_to_target[info_ptr->hap_of_target]);
                 }
@@ -388,7 +398,7 @@ namespace align_reads
                 row_idx = 0;
                 for (auto alignment_idx : chosen[i])
                 {
-                    if (alignment_idx == num_alignment)
+                    if (alignment_idx == MAX_UINT32)
                     {
                         this->fill_row_from_alignment(Ys[m_idx], i, row_idx++, alignment_ptr->truth_to_target[info_ptr->hap_of_target]);
                     }
@@ -419,12 +429,7 @@ namespace align_reads
     void AlignmentConverter::print_alignments_in_window(std::uint32_t window)
     {
         std::uint32_t width_idx = window * matrix_width;
-        auto& width_idx_to_pos_idx = alignment_ptr->width_idx_to_pos_idx;
-        auto index_pair = width_idx_to_pos_idx[width_idx];
-        /*for (auto& s: alignment_ptr->alignment_segments)
-        {
-
-        }*/
+        alignment_ptr->print_in_window(width_idx, matrix_width);
     }
 
 } // namespace align_reads

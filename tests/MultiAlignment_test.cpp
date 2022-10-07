@@ -200,5 +200,4 @@ TEST(MultiAlignment, print)
     
   
     ma.print_in_window(0, 5);
-    
 }

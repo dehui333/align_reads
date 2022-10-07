@@ -62,19 +62,26 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
     {
         // will be a list of list of strings
         PyObject *paths_list;
-        std::uint32_t num_threads;
+        int num_threads;
         // Arguments: list, number threads
-        if (!PyArg_ParseTuple(args, "OI", &paths_list, &num_threads))
+        if (!PyArg_ParseTuple(args, "Oi", &paths_list, &num_threads))
+        {
             return NULL;
-
+        }
         // confirm is list
         if (!PyList_Check(paths_list))
+        {
             return NULL;
+        }
+            
 
         // Get length
         auto len = PyList_Size(paths_list);
         if (len == 0)
+        {
             return NULL;
+        }
+            
 
         std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(num_threads);
 

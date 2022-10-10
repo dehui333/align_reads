@@ -91,7 +91,10 @@ namespace align_reads
         const char *current_q_char = query.c_str() + q_start;
         const char *current_t_char = target.c_str() + start_on_target;
         std::string ins_segment_buffer;
-        ins_segment_buffer.reserve(1000);
+
+        // why not just add to ins_segments
+        // or std::move
+        ins_segment_buffer.reserve(10);
 
         for (int i = 0; i < result.alignmentLength; i++)
         {

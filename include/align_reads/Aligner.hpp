@@ -50,7 +50,8 @@ namespace align_reads
     template <typename R>
     struct clipped_alignment
     {
-        std::string clipped_query;
+        std::string clipped_query; // already clipped according to q_start and q_end
+        // input indices to alignment
         std::uint32_t q_start;
         std::uint32_t q_end; // ends are inclusive
         std::uint32_t t_start;

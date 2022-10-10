@@ -567,7 +567,7 @@ TEST(Converter, produce_alignment_matrices)
     std::vector<std::vector<std::uint32_t>> chosen;
     chosen.resize(2);
     chosen[0] = {0, 1, 2, 3};
-    chosen[1] = {1, 4, 4, 3};
+    chosen[1] = {1, static_cast<std::uint32_t>(-1), static_cast<std::uint32_t>(-1), 3};
     std::shared_ptr<thread_pool::ThreadPool> null_pool = nullptr;
     auto Xs = converter.produce_alignment_matrices(chosen, null_pool);
     EXPECT_EQ(Xs.size(), 2);
@@ -680,7 +680,7 @@ TEST(Converter, produce_alignment_matrices_parallel)
     std::vector<std::vector<std::uint32_t>> chosen;
     chosen.resize(2);
     chosen[0] = {0, 1, 2, 3};
-    chosen[1] = {1, 4, 4, 3};
+    chosen[1] = {1, static_cast<std::uint32_t>(-1), static_cast<std::uint32_t>(-1), 3};
     //std::shared_ptr<thread_pool::ThreadPool> n_pool = nullptr;
     auto Xs = converter.produce_alignment_matrices(chosen, pool);
     EXPECT_EQ(Xs.size(), 2);

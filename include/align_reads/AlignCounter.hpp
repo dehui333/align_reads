@@ -8,10 +8,13 @@
 
 #include "align_reads/Aligner.hpp"
 
+
+
 namespace align_reads
 {
-
-    constexpr static std::uint8_t ENCODER[] = {
+    // another copy in Converter.cpp
+    // should do sth about this
+    /*constexpr static std::uint8_t ENCODER[] = {
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -26,7 +29,10 @@ namespace align_reads
         255, 255, 255, 255, 255, 255, 3, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255};
     constexpr static char DECODER[] = {
-        'A', 'C', 'G', 'T', '_', '*'};
+        'A', 'C', 'G', 'T', '_', '*'};*/
+    extern std::uint8_t ENCODER[];
+    extern char DECODER[];
+
 
     class AlignCounter
     {
@@ -45,7 +51,14 @@ namespace align_reads
         }
 
     private:
+        /*
+        one for each position on target -> 
+        one for aligned base/del + one for each ins -> one for each base + del (5)
+        */
         std::vector<std::vector<std::vector<std::uint16_t>>> counts;
+        std::vector<std::vector<std::vector<float>>> stats;
+
+        friend class CountsConverter;
     };
 
 } // namespace align_reads

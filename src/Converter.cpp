@@ -16,7 +16,9 @@
 namespace align_reads
 {
 
-    constexpr static std::uint8_t ENCODER[] = {
+    // another copy in AlignCounter.hpp
+    // should do sth about this
+    std::uint8_t ENCODER[] = {
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -30,7 +32,7 @@ namespace align_reads
         255, 255, 255, 2, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 3, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255};
-    constexpr static char DECODER[] = {
+    char DECODER[] = {
         'A', 'C', 'G', 'T', '_', '*'};
 
     AlignmentConverter::AlignmentConverter(MultiAlignment &alignment,

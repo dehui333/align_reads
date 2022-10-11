@@ -72,6 +72,7 @@ add_library(align_reads STATIC edlib/src/edlib.cpp src/Inputs.cpp src/Overlapper
   src/AlignmentSegment.cpp
   src/MultiAlignment.cpp
   src/AlignCounter.cpp
+  src/CountsConverter.cpp
   )
 
 # python library

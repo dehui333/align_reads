@@ -15,6 +15,16 @@
  * 
  * !!!!!!!!!!!!!!!!! try to move width index stuff to MultiAlignment and add
  *  multi alignment aware printing functionality there
+ * 
+ * >> The ground truth info can either be passed from python level
+ * (actually can't, i don't know which sequence is coming up and passing everything will be too large)
+ * or found in C++ level using ram....?
+ * possible ways:
+ * 1. find on the spot with ram
+ * 2. put the truth reads in memory....
+ * 3. get the truth reads from indexed fasta
+ * 4. get from bam somehow (actually if we don't load whole bam into mem, as good
+ *  as indexing fasta and getting from there?)
  */
 
 

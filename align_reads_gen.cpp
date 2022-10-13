@@ -96,7 +96,7 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         else
         {
         }
-        if (strcmp(truth_path, "") == 0)
+        if (strcmp(truth_path, "") != 0)
         {
             std::string truth_path_string {truth_path};
             gen->index_truth(truth_path_string);

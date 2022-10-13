@@ -1,6 +1,7 @@
 #ifndef ALIGN_READS_GENERATOR_HPP_
 #define ALIGN_READS_GENERATOR_HPP_
 
+
 #include "align_reads/Aligner.hpp"
 #include "align_reads/AlignCounter.hpp"
 #include "align_reads/CountsConverter.hpp"
@@ -47,7 +48,7 @@ namespace align_reads
                   std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_size);
         Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length);
         // Data produce_data();
-        //  The first vector<PyObject*> contains the counts matrices,
+        //  The first vector<PyObject*> contains the truth matrices,
         //  the second the ..., etc.
         std::vector<std::vector<PyObject *>> produce_data();
 
@@ -79,7 +80,6 @@ namespace align_reads
             npy_intp dims[2];
             dims[0] = 1;
             dims[1] = window_length;
-            
             std::string seq_name = target->name;
             std::string truth_string = indexed_sequences.get_sequence(seq_name);
             auto align_segment = get_alignment_segment(truth_string, 0, truth_string.size(),

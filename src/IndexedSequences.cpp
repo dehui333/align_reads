@@ -1,12 +1,11 @@
 
-
 #include "align_reads/IndexedSequences.hpp"
 
 namespace align_reads
 {
     inline void read_in_index(std::string& index_file_name, std::unordered_map<std::string, indexed_info>& index)
     {
-        std::ifstream index_file_stream(index_file_name);
+        std::ifstream index_file_stream {index_file_name};
         std::string seq_name;
         std::uint32_t seq_len;
         std::uint64_t offset;
@@ -41,7 +40,7 @@ namespace align_reads
         std::uint64_t offset = info.offset;
         std::uint32_t total_length = info.length;
         std::uint32_t line_bases = info.line_bases;
-
+        
         output.reserve(total_length);
         std::string buffer;
         std::uint32_t length_read = 0;

@@ -56,9 +56,9 @@ namespace align_reads
         {
             output.push_back(get_ground_truth(target, target_string, align_counter, left_clip, right_clip, alignment_length, num_matrices));
         }
-
+        std::cout << "at 1 " << std::endl;
         output.push_back(CountsConverter::get_counts_matrices(align_counter, window_length, left_clip, right_clip, num_matrices));
-
+        std::cout << "at 2 " << std::endl;
         return output;
     }
 

@@ -1,4 +1,6 @@
 #include "align_reads/Aligner.hpp"
+#include "align_reads/AlignCounter.hpp"
+#include "align_reads/CountsConverter.hpp"
 #include "align_reads/Converter.hpp"
 #include "align_reads/Generator.hpp"
 #include "align_reads/MultiAlignment.hpp"
@@ -10,8 +12,8 @@ namespace align_reads
 
     Generator::Generator(std::vector<std::string> &reads0, std::vector<std::string> &reads1,
                          std::vector<std::string> &haplotype0, std::vector<std::string> &haplotype1,
-                         std::shared_ptr<thread_pool::ThreadPool> pool)
-        : has_haplotypes(true), pool(pool), inputs(3), overlapper(3, pool)
+                         std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length)
+        : has_truth(true), pool(pool), inputs(3), overlapper(3, pool), window_length(window_length)
     {
         inputs.append_to_group(READS_GROUP, reads0, pool);
         start_of_reads1 = inputs.get_group(0).size();
@@ -26,14 +28,31 @@ namespace align_reads
         overlapper.index_sequences(inputs.get_group(HAP1_GROUP), HAP1_GROUP);
     }
 
-    Generator::Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool)
-        : has_haplotypes(false), pool(pool), inputs(1), overlapper(1, pool)
+    Generator::Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length)
+        : has_truth(false), pool(pool), inputs(1), overlapper(1, pool), window_length(window_length)
     {
         inputs.append_to_group(READS_GROUP, reads, pool);
         inputs.index_group(READS_GROUP);
         overlapper.index_sequences(inputs.get_group(READS_GROUP), READS_GROUP);
     }
+    
+  
 
+    std::vector<std::vector<PyObject*>> Generator::produce_data()
+    {
+        std::vector<std::vector<PyObject*>> output;
+        auto& target = inputs.get_id_in_group(READS_GROUP, current_target++);
+        output.push_back(get_counts_matrices(target));
+        
+        if (has_truth)
+        {
+            //output.push_back(get_ground_truth())
+        }
+
+        return output;
+
+    }
+/*
     Data Generator::produce_data()
     {
         // Get the next target read
@@ -71,5 +90,5 @@ namespace align_reads
         Data data = converter.produce_data(pool, false);
         return data;
     }
-
+*/
 } // namespace align_reads

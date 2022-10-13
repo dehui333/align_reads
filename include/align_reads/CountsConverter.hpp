@@ -18,13 +18,13 @@ namespace align_reads
         for parallelism, need to allocate the right number of matrices sequentially and determine
         beforehand the start and end counter (maybe using iterator) of each window  
         */
-        std::vector<PyObject*> get_counts_matrices(AlignCounter &counter);
+        static std::vector<PyObject*> get_counts_matrices(AlignCounter &counter, std::uint16_t window_length);
 
 
-        CountsConverter(std::uint16_t window_length) : window_length(window_length) {}
+        //CountsConverter(std::uint16_t window_length) : window_length(window_length) {}
 
     private:
-        std::uint16_t window_length; 
+        //std::uint16_t window_length; 
         
     };
 

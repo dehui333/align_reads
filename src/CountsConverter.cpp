@@ -31,7 +31,7 @@ namespace align_reads
         }
     }
 
-    std::vector<PyObject *> CountsConverter::get_counts_matrices(AlignCounter &counter)
+    std::vector<PyObject *> CountsConverter::get_counts_matrices(AlignCounter &counter, std::uint16_t window_length)
     {
         npy_intp dims[2];
         dims[0] = NUM_COUNTS;

@@ -9,13 +9,13 @@ extern const char* fasta_path;
 extern std::shared_ptr<thread_pool::ThreadPool> pool;
 TEST(Generator, class_Generator) {
     std::vector<std::string> paths = {fastq_path};
-    align_reads::Generator gen {paths, pool};
-    EXPECT_FALSE(gen.has_haplotypes);
+    align_reads::Generator gen {paths, pool, 10};
+    EXPECT_FALSE(gen.has_truth);
     EXPECT_EQ(gen.inputs.get_group(0).size(), 3165);
     EXPECT_EQ(gen.start_of_reads1, 0);
 
-    align_reads::Generator gen2 {paths, paths, paths, paths, pool};
-    EXPECT_TRUE(gen2.has_haplotypes);
+    align_reads::Generator gen2 {paths, paths, paths, paths, pool, 10};
+    EXPECT_TRUE(gen2.has_truth);
     EXPECT_EQ(gen2.inputs.get_group(0).size(), 3165 * 2);
     EXPECT_EQ(gen2.start_of_reads1, 3165);
 

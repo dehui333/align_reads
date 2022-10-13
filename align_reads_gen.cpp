@@ -63,8 +63,9 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         // will be a list of list of strings
         PyObject *paths_list;
         int num_threads;
+        int window_length;
         // Arguments: list, number threads
-        if (!PyArg_ParseTuple(args, "Oi", &paths_list, &num_threads))
+        if (!PyArg_ParseTuple(args, "Oii", &paths_list, &num_threads, &window_length))
         {
             return NULL;
         }
@@ -73,7 +74,6 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         {
             return NULL;
         }
-            
 
         // Get length
         auto len = PyList_Size(paths_list);
@@ -81,7 +81,6 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         {
             return NULL;
         }
-            
 
         std::shared_ptr<thread_pool::ThreadPool> pool = std::make_shared<thread_pool::ThreadPool>(num_threads);
 
@@ -89,7 +88,7 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         {
             // Not split into haplotypes
             auto paths = convert_strings_in_pylist(paths_list, 0);
-            gen = new Generator(paths, pool);
+            gen = new Generator(paths, pool, window_length);
         }
         else
         {
@@ -166,15 +165,23 @@ static PyObject *generate_features_cpp(PyObject *self, PyObject *args)
 
     return return_tuple;*/
     // Get a batch of feature data
-    Data data = gen->produce_data();
-    // Create lists of matrices
-    PyObject *X_list = PyList_New(data.Xs.size());
-    for (std::uint32_t i = 0; i < data.Xs.size(); i++)
+
+    std::vector<std::vector<PyObject *>> data = gen->produce_data();
+
+    // Creates tuple to return to python level
+    PyObject *return_tuple = PyTuple_New(data.size());
+    for (std::uint32_t i = 0; i < data.size(); i++)
     {
-        PyList_SetItem(X_list, i, data.Xs[i]);
+        auto &pyObjects = data[i];
+        PyObject *python_list = PyList_New(pyObjects.size());
+        for (std::uint32_t j = 0; j < pyObjects.size(); j++)
+        {
+            PyList_SetItem(python_list, j, pyObjects[j]);
+        }
+        PyTuple_SetItem(return_tuple, i, python_list);
     }
-    // Py_RETURN_NONE;
-    return X_list;
+
+    return return_tuple;
 }
 
 // free memory.

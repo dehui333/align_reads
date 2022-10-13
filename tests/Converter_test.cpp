@@ -1060,8 +1060,7 @@ TEST(CountsConverter, basic)
 
     AlignCounter ac{t, v};
 
-    CountsConverter cc{4};
-    std::vector<PyObject *> matrices = cc.get_counts_matrices(ac);
+    std::vector<PyObject *> matrices = CountsConverter::get_counts_matrices(ac, 4);
     EXPECT_EQ(matrices.size(), 4);
 
     uint16_t* value_ptr;

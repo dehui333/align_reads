@@ -4,10 +4,9 @@
 
 namespace align_reads
 {
-
-    IndexedSequences::IndexedSequences(std::string &sequence_file_name) : seq_file_stream(sequence_file_name)
+    inline void read_in_index(std::string& index_file_name, std::unordered_map<std::string, indexed_info>& index)
     {
-        std::ifstream index_file_stream(sequence_file_name + ".fai");
+        std::ifstream index_file_stream(index_file_name);
         std::string seq_name;
         std::uint32_t seq_len;
         std::uint64_t offset;
@@ -20,6 +19,19 @@ namespace align_reads
         }
 
         index_file_stream.close();
+    }
+
+    IndexedSequences::IndexedSequences(std::string &sequence_file_name) : seq_file_stream(sequence_file_name)
+    {
+        std::string index_file_name = sequence_file_name + ".fai"; 
+        read_in_index(index_file_name, index);
+    }
+
+    void IndexedSequences::index_reads(std::string &sequence_file_path)
+    {
+        seq_file_stream.open(sequence_file_path);
+        std::string index_file_name = sequence_file_path + ".fai"; 
+        read_in_index(index_file_name, index);
     }
 
     std::string IndexedSequences::get_sequence(std::string &seq_name)

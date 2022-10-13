@@ -11,10 +11,11 @@
 namespace align_reads
 {
 
-    inline void initialize_slot(std::vector<std::vector<std::uint16_t>> &counts_at_pos, std::uint32_t slot_index)
+    inline void initialize_slot(std::vector<std::vector<std::uint16_t>> &counts_at_pos, std::uint32_t slot_index, std::uint32_t& alignment_length)
     {
         if (counts_at_pos.size() < slot_index + 1)
         {
+            alignment_length++;
             counts_at_pos.resize(slot_index + 1);
             counts_at_pos[slot_index].resize(5, 0);
         }
@@ -22,7 +23,7 @@ namespace align_reads
 
     inline void update_counts_and_stats(std::vector<std::vector<std::vector<std::uint16_t>>> &counts,
                                         std::vector<std::vector<std::vector<float>>>& stats,
-                                        clipped_alignment<EdlibAlignResult> &alignment)
+                                        clipped_alignment<EdlibAlignResult> &alignment, std::uint32_t& alignment_length)
 
     {
         auto &result = alignment.result;
@@ -58,7 +59,7 @@ namespace align_reads
                     break;
                 }
                 std::vector<std::vector<std::uint16_t>> &counts_at_pos = counts[t_idx];
-                initialize_slot(counts_at_pos, ins_idx);
+                initialize_slot(counts_at_pos, ins_idx, alignment_length);
                 counts_at_pos[ins_idx++][ENCODER[static_cast<std::uint8_t>(*current_q_char)]]++;
                 current_q_char++;
                 break;
@@ -79,6 +80,7 @@ namespace align_reads
         // initialize and add counts from target
         counts.resize(target_string.size());
         //stats.resize(target_string.size());
+        alignment_length = target_string.size();
         std::uint32_t i;
         for (i = 0; i < target_string.size(); i++)
         {
@@ -98,7 +100,7 @@ namespace align_reads
         // Add in counts from aligned queries
         for (auto &alignment : alignments)
         {
-            update_counts_and_stats(counts, stats, alignment);
+            update_counts_and_stats(counts, stats, alignment, alignment_length);
         }
 
         // add in del for those without bases at some ins pos

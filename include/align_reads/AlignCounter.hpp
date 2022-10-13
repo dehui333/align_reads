@@ -49,7 +49,7 @@ namespace align_reads
         {
             return counts[target_idx][ins_idx][base_idx];
         }
-
+        std::uint32_t alignment_length;
     private:
         /*
         one for each position on target -> 

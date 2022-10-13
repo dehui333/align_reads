@@ -1,5 +1,6 @@
 #include <Python.h>
 #include <iostream>
+#include <string.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL gen_ARRAY_API
 #include "numpy/arrayobject.h"
@@ -64,8 +65,9 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         PyObject *paths_list;
         int num_threads;
         int window_length;
+        const char* truth_path;
         // Arguments: list, number threads
-        if (!PyArg_ParseTuple(args, "Oii", &paths_list, &num_threads, &window_length))
+        if (!PyArg_ParseTuple(args, "Osii", &paths_list, &truth_path, &num_threads, &window_length))
         {
             return NULL;
         }
@@ -89,9 +91,15 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
             // Not split into haplotypes
             auto paths = convert_strings_in_pylist(paths_list, 0);
             gen = new Generator(paths, pool, window_length);
+            
         }
         else
         {
+        }
+        if (strcmp(truth_path, "") == 0)
+        {
+            std::string truth_path_string {truth_path};
+            gen->index_truth(truth_path_string);
         }
     }
 

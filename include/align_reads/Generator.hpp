@@ -1,7 +1,6 @@
 #ifndef ALIGN_READS_GENERATOR_HPP_
 #define ALIGN_READS_GENERATOR_HPP_
 
-
 #include "align_reads/Aligner.hpp"
 #include "align_reads/AlignCounter.hpp"
 #include "align_reads/CountsConverter.hpp"
@@ -73,28 +72,75 @@ namespace align_reads
             return {target_string, align_results};
         }
 
-        inline std::vector<PyObject *> get_ground_truth(std::unique_ptr<biosoup::NucleicAcid> &target, std::string &target_string, AlignCounter &align_counter, std::uint32_t& left_clip, std::uint32_t& right_clip, std::uint32_t& alignment_length, std::uint32_t& num_matrices)
+        inline std::vector<PyObject *> get_ground_truth(std::unique_ptr<biosoup::NucleicAcid> &target, std::string &target_string, AlignCounter &align_counter, std::uint32_t &left_clip, std::uint32_t &right_clip, std::uint32_t &alignment_length, std::uint32_t &num_matrices)
         {
+            // output vector
             std::vector<PyObject *> output;
-            
-            npy_intp dims[2];
-            dims[0] = 1;
-            dims[1] = window_length;
+
+            // get truth sequence and align to target
             std::string seq_name = target->name;
             std::string truth_string = indexed_sequences.get_sequence(seq_name);
             auto align_segment = get_alignment_segment(truth_string, 0, truth_string.size(),
                                                        target_string, 0, target_string.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
+
+            // find the length on the sides without truth alignment
             left_clip = align_segment.start_on_target;
             right_clip = target_string.size() - align_segment.end_on_target - 1;
-            
+
+            // calculate length with alignment and number of matrices
             alignment_length = align_counter.alignment_length - left_clip - right_clip;
-            num_matrices = alignment_length % window_length == 0 ? alignment_length/window_length : alignment_length/window_length + 1;
+            num_matrices = alignment_length % window_length == 0 ? alignment_length / window_length : alignment_length / window_length + 1;
+
+            // prepare matrices
+            npy_intp dims[2];
+            dims[0] = 1;
+            dims[1] = window_length;
             output.reserve(num_matrices);
             for (std::uint32_t i = 0; i < num_matrices; i++)
             {
-                output.push_back(PyArray_SimpleNew(2, dims, NPY_UINT16));
+                output.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
             }
-            // need to fill up + pass to python level
+
+            // fill up matrices
+            std::uint32_t matrix_idx = 0;
+            std::uint32_t col_idx = 0;
+
+            std::uint32_t target_idx = align_segment.start_on_target;
+            std::uint16_t ins_idx = 0;
+
+            auto &counts = align_counter.counts;
+            auto end = counts.end() - right_clip;
+            // The iteration below is just to achieve same number of positions
+            // as the counts matrices. Don't actually need the counts.
+
+            std::uint8_t *value_ptr;
+            // each position on the target
+            for (auto it = counts.begin() + left_clip; it < end; it++)
+            {
+                auto &counts_at_pos = *it;
+                // aligned base (or del) plus any ins
+                for (auto &counter : counts_at_pos)
+                {
+                    value_ptr = (uint8_t *)PyArray_GETPTR2(output[matrix_idx], 0, col_idx++);
+                    *value_ptr = ENCODER[static_cast<std::uint8_t>(align_segment.get_at_target_pos(target_idx, ins_idx))];
+
+                    if (col_idx == window_length)
+                    {
+                        matrix_idx++;
+                        col_idx = 0;
+                    }
+                    ins_idx++;
+                }
+                target_idx++;
+                ins_idx = 0;
+            }
+
+            for (; col_idx < window_length;)
+            {
+                value_ptr = (uint8_t *)PyArray_GETPTR2(output[matrix_idx], 0, col_idx++);
+                *value_ptr = 5; // pad
+            }
+
             return output;
         }
     };

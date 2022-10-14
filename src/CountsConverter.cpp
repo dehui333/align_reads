@@ -31,7 +31,7 @@ namespace align_reads
         }
     }
 
-    std::vector<PyObject *> CountsConverter::get_counts_matrices(AlignCounter &counter, std::uint16_t window_length, std::uint32_t left_clip, std::uint32_t right_clip, std::uint32_t num_matrices)
+    std::vector<PyObject *> CountsConverter::get_counts_matrices(AlignCounter &counter, std::uint16_t window_length, std::uint32_t left_clip, std::uint32_t right_clip, std::uint32_t num_matrices, std::uint32_t alignment_length)
     {
         npy_intp dims[2];
         dims[0] = NUM_COUNTS;
@@ -41,14 +41,12 @@ namespace align_reads
         matrices.reserve(num_matrices);
         std::uint16_t matrix_idx = 0;
         std::uint16_t col_idx = 0;
-        std::uint32_t total_num_pos = 0;
         auto end = counts.end() - right_clip;
         for (auto it = counts.begin() + left_clip; it < end; it++)
         {
             auto& counts_at_pos = *it;
             for (auto &counter : counts_at_pos)
             {
-                total_num_pos++;
                 if (col_idx == 0)
                 {
                     matrices.push_back(PyArray_SimpleNew(2, dims, NPY_UINT16));
@@ -61,7 +59,7 @@ namespace align_reads
                 }
             }
         }
-        std::uint16_t num_to_pad = window_length - (total_num_pos % window_length);
+        std::uint16_t num_to_pad = num_matrices * window_length - alignment_length;
         pad_zeros(matrices.back(), window_length-num_to_pad, window_length, NUM_COUNTS); 
 
         return matrices;

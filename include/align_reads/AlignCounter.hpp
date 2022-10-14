@@ -8,7 +8,8 @@
 
 #include "align_reads/Aligner.hpp"
 
-
+ // should write iterator over all the counts...
+ // but now..
 
 namespace align_reads
 {
@@ -50,6 +51,7 @@ namespace align_reads
             return counts[target_idx][ins_idx][base_idx];
         }
         std::uint32_t alignment_length;
+       
     private:
         /*
         one for each position on target -> 
@@ -58,7 +60,8 @@ namespace align_reads
         std::vector<std::vector<std::vector<std::uint16_t>>> counts;
         std::vector<std::vector<std::vector<float>>> stats;
 
-        friend class CountsConverter;
+        friend class CountsConverter; // should avoid this kind of things
+        friend class Generator;
     };
 
 } // namespace align_reads

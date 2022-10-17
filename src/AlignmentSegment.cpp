@@ -80,7 +80,7 @@ namespace align_reads
 
     AlignmentSegment::AlignmentSegment(std::string &query, std::uint32_t q_start,
                                        std::string &target, std::uint32_t t_start,
-                                       EdlibAlignResult &result)
+                                       EdlibAlignResult &result, bool free_result)
     {
         std::uint32_t aligned_len_on_target = result.endLocations[0] + 1 - result.startLocations[0];
         this->start_on_target = t_start + result.startLocations[0];
@@ -145,7 +145,11 @@ namespace align_reads
         {
             ins_segments[dest_index] = ins_segment_buffer;
         }
-        edlibFreeAlignResult(result);
+        if (free_result)
+        {
+            edlibFreeAlignResult(result);
+        }
+        
     }
 
     std::string &AlignmentSegment::get_aligned_chars()

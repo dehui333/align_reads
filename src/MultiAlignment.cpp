@@ -14,6 +14,12 @@ namespace align_reads
     {
         initialize();
     }
+
+    MultiAlignment::MultiAlignment(std::string &target,
+                                   std::vector<AlignmentSegment> &&segments) : target(target), alignment_segments(std::move(segments))
+    {
+        initialize();
+    }
     MultiAlignment::MultiAlignment(std::string &&target,
                                    std::vector<AlignmentSegment> &&segments) : target(std::move(target)), alignment_segments(std::move(segments))
     {
@@ -136,27 +142,30 @@ namespace align_reads
 
     MultiAlignment::MultiAlignmentIterator MultiAlignment::iterator(std::uint32_t alignment_idx, std::uint32_t start_width_idx)
     {
-        auto& align_segment = alignment_segments[alignment_idx];
-        auto& start_idx_pair = width_idx_to_pos_idx[start_width_idx];
+        auto &align_segment = alignment_segments[alignment_idx];
+        auto &start_idx_pair = width_idx_to_pos_idx[start_width_idx];
         if (start_idx_pair.first < align_segment.start_on_target)
         {
-            return {start_width_idx, alignment_segments[alignment_idx], width_idx_to_pos_idx, align_segment.start_on_target, 0}; 
+            return {start_width_idx, alignment_segments[alignment_idx], width_idx_to_pos_idx, align_segment.start_on_target, 0};
         }
-        return  {start_width_idx, alignment_segments[alignment_idx], width_idx_to_pos_idx, start_idx_pair.first, start_idx_pair.second};
+        return {start_width_idx, alignment_segments[alignment_idx], width_idx_to_pos_idx, start_idx_pair.first, start_idx_pair.second};
     }
 
     MultiAlignment::MultiAlignmentIterator MultiAlignment::target_iterator(AlignmentSegment &target_segment, std::uint32_t start_width_idx)
     {
-        auto& start_idx_pair = width_idx_to_pos_idx[start_width_idx];
+        auto &start_idx_pair = width_idx_to_pos_idx[start_width_idx];
         if (start_idx_pair.first < target_segment.start_on_target)
         {
-            return {start_width_idx, target_segment, width_idx_to_pos_idx, target_segment.start_on_target, 0}; 
+            return {start_width_idx, target_segment, width_idx_to_pos_idx, target_segment.start_on_target, 0};
         }
-        return  {start_width_idx, target_segment, width_idx_to_pos_idx, start_idx_pair.first, start_idx_pair.second};
+        return {start_width_idx, target_segment, width_idx_to_pos_idx, start_idx_pair.first, start_idx_pair.second};
     }
 
     void MultiAlignment::print_in_window(std::uint32_t start_width_index, std::uint32_t len)
     {
+        auto &start_idx = width_idx_to_pos_idx[start_width_index];
+        auto &end_idx = width_idx_to_pos_idx[start_width_index + len - 1];
+        std::cout << start_idx.first << "," << start_idx.second << " - " << end_idx.first << "," << end_idx.second << std::endl;
         AlignmentSegment target_segment{this->target};
         MultiAlignmentIterator target_iter = target_iterator(target_segment, start_width_index);
         std::uint32_t i = 0;
@@ -191,7 +200,9 @@ namespace align_reads
                     break;
                 }
             }
-            std::cout << buffer << std::endl;
+            auto start_t_idx = alignment_segments[j].start_on_target;
+            auto end_t_idx = alignment_segments[j].end_on_target;
+            std::cout << buffer << " " << start_t_idx << "," << 0 << " - " << end_t_idx << "," << 0 << std::endl;
         }
     }
 

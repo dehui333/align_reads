@@ -16,6 +16,8 @@ namespace align_reads
     {
     public:
         MultiAlignment(std::string &target, std::vector<AlignmentSegment> &segments);
+
+        MultiAlignment(std::string &target, std::vector<AlignmentSegment> &&segments);
         // steals content of inputs
         MultiAlignment(std::string &&target, std::vector<AlignmentSegment> &&segments);
 

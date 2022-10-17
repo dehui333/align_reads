@@ -54,7 +54,7 @@ namespace align_reads
         // Frees(consumes) the edlib result.
         // The target string should be the whole sequence while the query can be clipped.
         AlignmentSegment(std::string &query, std::uint32_t q_start,
-                         std::string &target, std::uint32_t t_start, EdlibAlignResult &result);
+                         std::string &target, std::uint32_t t_start, EdlibAlignResult &result, bool free_result=true);
 
         /*AlignmentSegment(std::string &query, std::string &target,
                           std::uint32_t q_start, std::uint32_t t_start,

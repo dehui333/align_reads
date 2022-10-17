@@ -1,6 +1,8 @@
 #ifndef ALIGN_READS_GENERATOR_HPP_
 #define ALIGN_READS_GENERATOR_HPP_
 
+#include <iostream>
+
 #include "align_reads/Aligner.hpp"
 #include "align_reads/AlignCounter.hpp"
 #include "align_reads/CountsConverter.hpp"
@@ -8,6 +10,7 @@
 #include "align_reads/IndexedSequences.hpp"
 #include "align_reads/Inputs.hpp"
 #include "align_reads/Overlapper.hpp"
+#include "align_reads/Utilities.hpp"
 
 /*
  * Issues:
@@ -41,17 +44,24 @@ namespace align_reads
     class Generator
     {
     public:
-        // The arguments are vector of paths to the sequences
+        // The arguments are vector of paths to the sequences // obsolete
         Generator(std::vector<std::string> &reads0, std::vector<std::string> &reads1,
                   std::vector<std::string> &haplotype0, std::vector<std::string> &haplotype1,
                   std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_size);
-        Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length);
+        Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length, bool debug_printing = false);
         // Data produce_data();
         //  The first vector<PyObject*> contains the truth matrices,
         //  the second the ..., etc.
         std::vector<std::vector<PyObject *>> produce_data();
 
         void index_truth(std::string &truth_path);
+
+        ~Generator() {delete for_print;}
+
+        void print_window(std::uint32_t width_idx, std::uint32_t len)
+        {
+            for_print->print_in_window(width_idx, len);
+        }
 
     private:
         bool has_truth = false;
@@ -64,11 +74,33 @@ namespace align_reads
         std::uint16_t window_length;
 
         IndexedSequences indexed_sequences;
+        bool debug_printing;
+        MultiAlignment *for_print = nullptr;
+
+        inline void prepare_for_print(std::string &target_string, std::vector<clipped_alignment<EdlibAlignResult>> &align_results)
+        {
+
+            auto futures = Futures<AlignmentSegment>(pool, align_results.size());
+            for (auto &result : align_results)
+            {
+                futures.add_inputs(get_alignment_segment2, result, target_string, false);
+            }
+            std::vector<AlignmentSegment> segments = futures.get();
+            if (for_print != nullptr)
+            {
+                delete for_print;
+            }
+            for_print = new MultiAlignment(target_string, std::move(segments));
+        }
 
         inline AlignCounter get_align_counter(std::unique_ptr<biosoup::NucleicAcid> &target, std::string &target_string)
         {
             auto overlaps = overlapper.find_overlaps(target, READS_GROUP);
             auto align_results = align_overlaps(overlaps, overlaps.size(), inputs, target_string, pool, READS_GROUP);
+            if (debug_printing)
+            {
+                prepare_for_print(target_string, align_results);
+            }
             return {target_string, align_results};
         }
 

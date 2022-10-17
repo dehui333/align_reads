@@ -65,9 +65,10 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         PyObject *paths_list;
         int num_threads;
         int window_length;
-        const char* truth_path;
-        // Arguments: list, number threads
-        if (!PyArg_ParseTuple(args, "Osii", &paths_list, &truth_path, &num_threads, &window_length))
+        int debug_print;
+        const char *truth_path;
+        // Arguments: list, number threads, window_length, debug_print(bool)
+        if (!PyArg_ParseTuple(args, "Osiii", &paths_list, &truth_path, &num_threads, &window_length, &debug_print))
         {
             return NULL;
         }
@@ -90,15 +91,14 @@ static PyObject *initialize_cpp(PyObject *self, PyObject *args)
         {
             // Not split into haplotypes
             auto paths = convert_strings_in_pylist(paths_list, 0);
-            gen = new Generator(paths, pool, window_length);
-            
+            gen = new Generator(paths, pool, window_length, debug_print);
         }
         else
         {
         }
         if (strcmp(truth_path, "") != 0)
         {
-            std::string truth_path_string {truth_path};
+            std::string truth_path_string{truth_path};
             gen->index_truth(truth_path_string);
         }
     }
@@ -147,6 +147,17 @@ static PyObject* initialize_cpp(PyObject *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 */
+static PyObject *print_window_cpp(PyObject *self, PyObject *args)
+{
+    int width_idx;
+    int len;
+    if (!PyArg_ParseTuple(args, "ii", &width_idx, &len))
+    {
+        return NULL;
+    }
+    gen->print_window(width_idx, len);
+    Py_RETURN_NONE;
+}
 
 // return features. Maybe modified to fit needs
 static PyObject *generate_features_cpp(PyObject *self, PyObject *args)
@@ -204,6 +215,7 @@ static PyMethodDef align_reads_gen_methods[] = {
     {"generate_features", generate_features_cpp, METH_VARARGS, "Generate features for reads correction."},
     {"initialize", initialize_cpp, METH_VARARGS, "Initialize generator."},
     {"cleanup", cleanup_cpp, METH_VARARGS, "Clean up resources."},
+    {"print_window", print_window_cpp, METH_VARARGS, "debug printting."},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef align_reads_gen_definition = {

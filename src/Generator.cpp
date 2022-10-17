@@ -28,8 +28,8 @@ namespace align_reads
         overlapper.index_sequences(inputs.get_group(HAP1_GROUP), HAP1_GROUP);
     }
 
-    Generator::Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length)
-        : has_truth(false), pool(pool), inputs(1), overlapper(1, pool), window_length(window_length)
+    Generator::Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length, bool debug_printing)
+        : has_truth(false), pool(pool), inputs(1), overlapper(1, pool), window_length(window_length), debug_printing(debug_printing) 
     {
         inputs.append_to_group(READS_GROUP, reads, pool);
         inputs.index_group(READS_GROUP);

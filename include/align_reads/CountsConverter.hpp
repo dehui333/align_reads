@@ -20,6 +20,7 @@ namespace align_reads
         */
         static std::vector<PyObject*> get_counts_matrices(AlignCounter &counter, std::uint16_t window_length, std::uint32_t left_clip, std::uint32_t right_clip, std::uint32_t num_matrices, std::uint32_t alignment_length);
 
+        static std::vector<PyObject*> get_stats_matrices(AlignCounter &counter, std::uint16_t window_length, std::uint32_t left_clip, std::uint32_t right_clip, std::uint32_t num_matrices, std::uint32_t alignment_length);
 
         //CountsConverter(std::uint16_t window_length) : window_length(window_length) {}
 

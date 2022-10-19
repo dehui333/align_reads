@@ -7,7 +7,7 @@
 #define C_INDEX 1
 #define G_INDEX 2
 #define T_INDEX 3
-#define DEL_INDEX 4
+#define GAP_INDEX 4
 
 namespace align_reads
 {
@@ -16,13 +16,33 @@ namespace align_reads
     {
         if (counts_at_pos.size() < slot_index + 1)
         {
-            alignment_length++;
+            if (slot_index > 0)
+            {
+                alignment_length++;
+            }
+            
             counts_at_pos.resize(slot_index + 1);
             counts_at_pos[slot_index].resize(5, 0);
 
             stats_at_pos.resize(slot_index + 1);
             stats_at_pos[slot_index].resize(5, 0);
         }
+    }
+
+    inline void update_counts_and_stats_one(
+        std::vector<std::vector<std::uint16_t>> &counts_at_pos,
+        std::vector<std::vector<float>> &stats_at_pos,
+        std::uint16_t ins_idx,
+        std::uint8_t base_idx,
+        float identity_score)
+    { 
+        //counts_at_pos[ins_idx][base_idx]++;
+        //stats_at_pos[ins_idx][base_idx] +=
+
+        std::uint16_t& count = counts_at_pos[ins_idx][base_idx];
+        float &stat = stats_at_pos[ins_idx][base_idx];
+        count++;
+        stat += (identity_score - stat)/count; // maintain average 
     }
 
     inline void update_counts_and_stats(std::vector<std::vector<std::vector<std::uint16_t>>> &counts,
@@ -40,7 +60,7 @@ namespace align_reads
         std::uint32_t ins_idx = 1;
         std::uint32_t num_aligned_at_pos = 0;
 
-        float identity_score = (float)result.editDistance / alignment.clipped_query.size();
+        float identity_score = 1 - (float)result.editDistance / alignment.clipped_query.size();
         bool first_match_target = true;
 
         for (int i = 0; i < result.alignmentLength; i++)
@@ -58,8 +78,9 @@ namespace align_reads
                 {
                     aux[t_idx].emplace_back(num_aligned_at_pos, identity_score);
                 }
-
-                counts[++t_idx][0][ENCODER[static_cast<std::uint8_t>(*current_q_char)]]++;
+                t_idx++;
+                update_counts_and_stats_one(counts[t_idx], stats[t_idx], 0, ENCODER[static_cast<std::uint8_t>(*current_q_char)], identity_score);
+                //counts[++t_idx][0][ENCODER[static_cast<std::uint8_t>(*current_q_char)]]++;
                 current_q_char++;
                 ins_idx = 1;
                 num_aligned_at_pos = 1;
@@ -82,7 +103,8 @@ namespace align_reads
                 std::vector<std::vector<std::uint16_t>> &counts_at_pos = counts[t_idx];
                 std::vector<std::vector<float>> &stats_at_pos = stats[t_idx];
                 initialize_slot(counts_at_pos, stats_at_pos, ins_idx, alignment_length);
-                counts_at_pos[ins_idx++][ENCODER[static_cast<std::uint8_t>(*current_q_char)]]++;
+                update_counts_and_stats_one(counts_at_pos, stats_at_pos, ins_idx++, ENCODER[static_cast<std::uint8_t>(*current_q_char)], identity_score);
+                //counts_at_pos[ins_idx++][ENCODER[static_cast<std::uint8_t>(*current_q_char)]]++;
                 current_q_char++;
                 break;
             }
@@ -92,7 +114,7 @@ namespace align_reads
                 aux[t_idx].emplace_back(num_aligned_at_pos, identity_score);
                 t_idx++;
                 num_aligned_at_pos = 0;
-                //counts[++t_idx][0][4]++; taken care of by aux
+                // counts[++t_idx][0][4]++; taken care of by aux
                 break;
             }
             }
@@ -112,15 +134,16 @@ namespace align_reads
         for (i = 0; i < target_string.size(); i++)
         {
             auto &counts_at_pos = counts[i];
-            counts_at_pos.resize(1);
-            counts_at_pos[0].resize(5, 0);
-            counts_at_pos[0][ENCODER[static_cast<std::uint8_t>(target_string[i])]]++;
+            //counts_at_pos.resize(1);
+            //counts_at_pos[0].resize(5, 0);
+            //counts_at_pos[0][ENCODER[static_cast<std::uint8_t>(target_string[i])]]++;
 
             auto &stats_at_pos = stats[i];
-            stats_at_pos.resize(1);
-            stats_at_pos[0].resize(5, 0);
-            stats_at_pos[0][ENCODER[static_cast<std::uint8_t>(target_string[i])]] += 1;
-
+            //stats_at_pos.resize(1);
+            //stats_at_pos[0].resize(5, 0);
+            //stats_at_pos[0][ENCODER[static_cast<std::uint8_t>(target_string[i])]] += 1;
+            initialize_slot(counts_at_pos, stats_at_pos, 0, alignment_length);
+            update_counts_and_stats_one(counts_at_pos, stats_at_pos, 0, ENCODER[static_cast<std::uint8_t>(target_string[i])], 1);
             /*
             auto &counts_at_pos = counts[i];
             counts_at_pos.resize(1);
@@ -168,19 +191,22 @@ namespace align_reads
         for (auto &pairs_at_pos : aux)
         {
             auto &counts_at_pos = counts[i];
+            auto &stats_at_pos = stats[i];
             for (auto &pair : pairs_at_pos)
             {
                 // pair.first is the number of bases aligned to this target position by this
                 // query
                 for (j = pair.first; j < counts_at_pos.size(); j++)
                 {
-                    counts_at_pos[j][4]++;
+                    update_counts_and_stats_one(counts_at_pos, stats_at_pos, j, 4, pair.second);
+                    //counts_at_pos[j][4]++;
                 }
             }
             // add gap count for target
             for (j = 1; j < counts_at_pos.size(); j++)
             {
-                counts_at_pos[j][4]++;
+                //counts_at_pos[j][4]++;
+                update_counts_and_stats_one(counts_at_pos, stats_at_pos, j, 4, 1);
             }
             i++;
         }

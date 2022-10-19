@@ -48,6 +48,8 @@ TEST(AlignCounter, construct)
     std::vector<clipped_alignment<EdlibAlignResult>> v{ca1, ca2, ca3};
 
     AlignCounter ac{t, v};
+
+    
     EXPECT_EQ(ac.max_ins_at(0), 0);
     EXPECT_EQ(ac.base_count_at(0, 0, 0), 0);
     EXPECT_EQ(ac.base_count_at(0, 0, 1), 0);

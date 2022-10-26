@@ -125,12 +125,21 @@ namespace align_reads
                     last_accepted_id = r.rhs_id;
                 }
             }
+            auto sort_by_iden = [] (const clipped_alignment<EdlibAlignResult>& lhs, const clipped_alignment<EdlibAlignResult>& rhs)
+            {
+                return lhs.identity_score > rhs.identity_score;
+            };
+            sort(filtered.begin(), filtered.end(), sort_by_iden);
+            while (filtered.size() > 50)
+            {
+                filtered.pop_back();
+            }
             if (debug_printing)
             {
                 prepare_for_print(target_string, filtered);
             }
 
-            //qual_check(filtered);
+            qual_check(filtered);
             return {target_string, filtered};
         }
 

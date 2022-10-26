@@ -3,7 +3,7 @@
 #define private public
 #include "../src/AlignCounter.cpp"
 #include "align_reads/Aligner.hpp"
-
+#include <cmath>
 using namespace align_reads;
 
 TEST(AlignCounter, construct)
@@ -30,6 +30,7 @@ TEST(AlignCounter, construct)
   ca1.t_start = 0;
   ca1.t_end = 11;
   ca1.result = result1;
+  ca1.identity_score = 0.8;
   clipped_alignment<EdlibAlignResult> ca2;
   ca2.clipped_query = q2;
   ca2.q_start = 0;
@@ -37,12 +38,14 @@ TEST(AlignCounter, construct)
   ca2.t_start = 0;
   ca2.t_end = 11;
   ca2.result = result2;
+  ca2.identity_score = 1;
   clipped_alignment<EdlibAlignResult> ca3;
   ca3.clipped_query = q3;
   ca3.q_start = 0;
   ca3.q_end = 13;
   ca3.t_start = 0;
   ca3.t_end = 11;
+  ca3.identity_score = 1;
   ca3.result = result3;
 
   std::vector<clipped_alignment<EdlibAlignResult>> v{ca1, ca2, ca3};
@@ -50,12 +53,8 @@ TEST(AlignCounter, construct)
 
 
   AlignCounter ac{t, v};
+  
   /*
-  for (auto i = 0; i < v.size(); i++)
-  {
-    std::cout << i << " iden " << 1 - (float) v[i].result.editDistance / v[i].clipped_query.size() << std::endl;
-  }
-
   for (auto i = 0; i < ac.counts.size(); i++)
   {
     std::cout << "target pos " << i << std::endl;
@@ -69,6 +68,20 @@ TEST(AlignCounter, construct)
       }
     }
   } */
+  EXPECT_TRUE(std::abs(ac.stats[0][0][3]-0.93333) < 0.00001);
+  EXPECT_TRUE(std::abs(ac.stats[1][0][1]-0.8) < 0.00001);
+  EXPECT_TRUE(std::abs(ac.stats[1][0][0]-1) < 0.00001);
+  EXPECT_TRUE(std::abs(ac.stats[2][0][2]-0.95) < 0.00001);
+  EXPECT_TRUE(std::abs(ac.stats[3][1][4]-1) < 0.00001);
+  EXPECT_TRUE(std::abs(ac.stats[3][1][3]-0.9) < 0.00001);
+  EXPECT_TRUE(std::abs(ac.stats[3][2][3]-1) < 0.00001);
+  EXPECT_TRUE(std::abs(ac.stats[3][2][4]-0.93333) < 0.00001);
+  
+  
+
+
+
+
 
   EXPECT_EQ(ac.max_ins_at(0), 0);
   EXPECT_EQ(ac.base_count_at(0, 0, 0), 0);

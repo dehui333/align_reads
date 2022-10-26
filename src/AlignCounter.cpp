@@ -45,24 +45,7 @@ namespace align_reads
         stat += (identity_score - stat)/count; // maintain average 
     }
 
-    inline float iden_from_align_result(EdlibAlignResult& result)
-    {
-        std::uint32_t num_match = 0;
-        std::uint32_t num_mismatch = 0;
 
-        for (int i = 0; i < result.alignmentLength; i++)
-        {
-            if (result.alignment[i] == 0)
-            {
-                num_match++;
-            } 
-            else if (result.alignment[i] == 3)
-            {
-                num_mismatch++;
-            }
-        }
-        return (float) num_match / (num_match + num_mismatch);
-    }
 
     inline void update_counts_and_stats(std::vector<std::vector<std::vector<std::uint16_t>>> &counts,
                                         std::vector<std::vector<std::vector<float>>> &stats,
@@ -80,7 +63,7 @@ namespace align_reads
         std::uint32_t num_aligned_at_pos = 0;
 
 
-        float identity_score = iden_from_align_result(result);
+        float identity_score = alignment.identity_score;
         bool first_match_target = true;
 
         for (int i = 0; i < result.alignmentLength; i++)

@@ -52,12 +52,14 @@ namespace align_reads
     {
         // already clipped according to q_start and q_end
         // this is the input to alignment
+        std::uint32_t rhs_id;
         std::string clipped_query; 
         // input indices to alignment
         std::uint32_t q_start;
         std::uint32_t q_end; // ends are inclusive
         std::uint32_t t_start;
         std::uint32_t t_end;
+        float identity_score;
         bool valid = true;
         R result;
 

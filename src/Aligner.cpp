@@ -59,7 +59,24 @@ namespace align_reads
     {
         return edlibAlign(q_start, q_len, t_start, t_len, edlibNewAlignConfig(-1, mode, task, NULL, 0));
     }
+    inline float iden_from_align_result(EdlibAlignResult &result)
+    {
+        std::uint32_t num_match = 0;
+        std::uint32_t num_mismatch = 0;
 
+        for (int i = 0; i < result.alignmentLength; i++)
+        {
+            if (result.alignment[i] == 0)
+            {
+                num_match++;
+            }
+            else if (result.alignment[i] == 3)
+            {
+                num_mismatch++;
+            }
+        }
+        return (float)num_match / (num_match + num_mismatch);
+    }
     // align the rhs to the lhs
     clipped_alignment<EdlibAlignResult> align_overlap(biosoup::Overlap o, align_reads::Inputs *inputs, const char *target_string, std::uint32_t target_len, std::uint8_t query_group)
     {
@@ -85,7 +102,6 @@ namespace align_reads
         // when the overlapping segments are aligned.
         int protrude_left = q_begin - t_begin;
         int protrude_right = (query->inflated_len - q_end) - (target_len - t_end);
-
 
         // How much (approximately) to clip off each sequence so that only the overlapping segments
         // are left.
@@ -121,7 +137,7 @@ namespace align_reads
             to_return.valid = false;
             return to_return;
         }
-        
+
         auto q_len = query->inflated_len - q_clip_left - q_clip_right;
         auto t_len = target_len - t_clip_left - t_clip_right;
         std::string query_segment;
@@ -137,10 +153,11 @@ namespace align_reads
         to_return.q_end = q_clip_left + q_len - 1;
         to_return.t_start = t_clip_left;
         to_return.t_end = t_clip_left + t_len - 1;
-
+        to_return.rhs_id = o.rhs_id;
         to_return.result = get_edlib_result_(query_segment.c_str(), q_len,
                                              target_string + t_clip_left, t_len,
                                              EDLIB_MODE_INFIX, EDLIB_TASK_PATH);
+        to_return.identity_score = iden_from_align_result(to_return.result);
         to_return.clipped_query = std::move(query_segment);
         return to_return;
     }
@@ -176,7 +193,7 @@ namespace align_reads
         }
     }
 
-    AlignmentSegment get_alignment_segment2(clipped_alignment<EdlibAlignResult>& result, std::string& target_string, bool free_result)
+    AlignmentSegment get_alignment_segment2(clipped_alignment<EdlibAlignResult> &result, std::string &target_string, bool free_result)
     {
         return {result.clipped_query, 0, target_string, result.t_start, result.result, free_result};
     }

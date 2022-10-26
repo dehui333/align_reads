@@ -116,11 +116,13 @@ namespace align_reads
             auto align_results = align_overlaps(overlaps, overlaps.size(), inputs, target_string, pool, READS_GROUP);
             std::vector<clipped_alignment<EdlibAlignResult>> filtered;
             filtered.reserve(align_results.size());
+            std::uint32_t last_accepted_id = -1;
             for (auto &r : align_results)
             {
-                if (r.valid)
+                if (r.valid && r.rhs_id != last_accepted_id)
                 {
                     filtered.push_back(r);
+                    last_accepted_id = r.rhs_id;
                 }
             }
             if (debug_printing)

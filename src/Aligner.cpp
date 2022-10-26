@@ -113,6 +113,14 @@ namespace align_reads
             q_clip_right = 0;
             t_clip_right = -protrude_right;
         }
+
+        std::uint32_t left_overhang = q_begin - q_clip_left;
+        std::uint32_t right_overhang = query->inflated_len - q_clip_right - q_end;
+        if (left_overhang > 500 || right_overhang > 500)
+        {
+            to_return.valid = false;
+            return to_return;
+        }
         
         auto q_len = query->inflated_len - q_clip_left - q_clip_right;
         auto t_len = target_len - t_clip_left - t_clip_right;

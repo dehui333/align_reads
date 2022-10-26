@@ -56,7 +56,7 @@ namespace align_reads
 
         void index_truth(std::string &truth_path);
 
-        ~Generator() {delete for_print;}
+        ~Generator() { delete for_print; }
 
         void print_window(std::uint32_t width_idx, std::uint32_t len)
         {
@@ -93,15 +93,43 @@ namespace align_reads
             for_print = new MultiAlignment(target_string, std::move(segments));
         }
 
+        inline void qual_check(std::vector<clipped_alignment<EdlibAlignResult>> &results)
+        {
+            std::vector<float> err_rates;
+            float sum = 0;
+            for (auto &r : results)
+            {
+                err_rates.push_back((float)r.result.editDistance / r.clipped_query.size());
+            }
+            for (auto f : err_rates)
+            {
+                std::cout << "rate " << f << std::endl;
+                sum += f;
+            }
+            std::cout << "avg " << sum / err_rates.size() << std::endl;
+            std::cout << "num " << err_rates.size() << std::endl;
+        }
+
         inline AlignCounter get_align_counter(std::unique_ptr<biosoup::NucleicAcid> &target, std::string &target_string)
         {
             auto overlaps = overlapper.find_overlaps(target, READS_GROUP);
             auto align_results = align_overlaps(overlaps, overlaps.size(), inputs, target_string, pool, READS_GROUP);
+            std::vector<clipped_alignment<EdlibAlignResult>> filtered;
+            filtered.reserve(align_results.size());
+            for (auto &r : align_results)
+            {
+                if (r.valid)
+                {
+                    filtered.push_back(r);
+                }
+            }
             if (debug_printing)
             {
-                prepare_for_print(target_string, align_results);
+                prepare_for_print(target_string, filtered);
             }
-            return {target_string, align_results};
+
+            //qual_check(filtered);
+            return {target_string, filtered};
         }
 
         inline std::vector<PyObject *> get_ground_truth(std::unique_ptr<biosoup::NucleicAcid> &target, std::string &target_string, AlignCounter &align_counter, std::uint32_t &left_clip, std::uint32_t &right_clip, std::uint32_t &alignment_length, std::uint32_t &num_matrices)

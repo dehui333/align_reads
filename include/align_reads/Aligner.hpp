@@ -58,6 +58,7 @@ namespace align_reads
         std::uint32_t q_end; // ends are inclusive
         std::uint32_t t_start;
         std::uint32_t t_end;
+        bool valid = true;
         R result;
 
     };

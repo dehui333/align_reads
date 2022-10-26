@@ -77,6 +77,29 @@ namespace align_reads
         }
         return (float)num_match / (num_match + num_mismatch);
     }
+
+    inline bool another_chance(const char *target, std::uint16_t t_len, const char *query, std::uint16_t q_len)
+    {
+        auto result = get_edlib_result(query, q_len, target, t_len, EDLIB_MODE_INFIX, EDLIB_TASK_DISTANCE);
+        if ((float)result.editDistance / q_len < 0.15)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    inline std::string InflateDataAccordingly(std::unique_ptr<biosoup::NucleicAcid> &seq, std::uint32_t start,
+                                              std::uint32_t len, bool strand)
+    {
+        if (!strand)
+        {
+            return seq->InflateDataReverse(start, len);
+        }
+        else
+        {
+            return seq->InflateData(start, len);
+        }
+    }
     // align the rhs to the lhs
     clipped_alignment<EdlibAlignResult> align_overlap(biosoup::Overlap o, align_reads::Inputs *inputs, const char *target_string, std::uint32_t target_len, std::uint8_t query_group)
     {
@@ -132,23 +155,29 @@ namespace align_reads
 
         std::uint32_t left_overhang = q_begin - q_clip_left;
         std::uint32_t right_overhang = query->inflated_len - q_clip_right - q_end;
-        if (left_overhang > 500 || right_overhang > 500)
-        {
-            to_return.valid = false;
-            return to_return;
-        }
-
+        std::string query_segment;
         auto q_len = query->inflated_len - q_clip_left - q_clip_right;
         auto t_len = target_len - t_clip_left - t_clip_right;
-        std::string query_segment;
-        if (!o.strand)
+        if (left_overhang > 500)
         {
-            query_segment = query->InflateDataReverse(q_clip_left, q_len);
+            query_segment = InflateDataAccordingly(query, q_clip_left + 100, 100, o.strand);
+            if (!another_chance(target_string + t_clip_left, 300, query_segment.c_str(), 100))
+            {
+                to_return.valid = false;
+                return to_return;
+            }
         }
-        else
+        if (right_overhang > 500)
         {
-            query_segment = query->InflateData(q_clip_left, q_len);
+            query_segment = InflateDataAccordingly(query, q_clip_left + q_len - 200, 100, o.strand);
+            if (!another_chance(target_string + t_clip_left + t_len - 300, 300, query_segment.c_str(), 100))
+            {
+                to_return.valid = false;
+                return to_return;
+            }
         }
+
+        query_segment = InflateDataAccordingly(query, q_clip_left, q_len, o.strand);
         to_return.q_start = q_clip_left;
         to_return.q_end = q_clip_left + q_len - 1;
         to_return.t_start = t_clip_left;

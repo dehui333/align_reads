@@ -54,6 +54,8 @@ namespace align_reads
         //  the second the ..., etc.
         std::vector<std::vector<PyObject *>> produce_data();
 
+        bool has_next();
+
         void index_truth(std::string &truth_path);
 
         ~Generator() { delete for_print; }
@@ -66,7 +68,7 @@ namespace align_reads
     private:
         bool has_truth = false;
         std::uint32_t start_of_reads1 = 0; // id from which second set of reads start from
-        std::uint32_t current_target = 0;  // may need atomic if parallelize?
+        std::uint32_t current_target = 0;  // may need atomic if parallelize? - numpy array creation can't be
 
         std::shared_ptr<thread_pool::ThreadPool> pool; // pool of workers
         Inputs inputs;                                 // Stores input sequences
@@ -139,7 +141,7 @@ namespace align_reads
                 prepare_for_print(target_string, filtered);
             }
 
-            qual_check(filtered);
+            //qual_check(filtered);
             return {target_string, filtered};
         }
 

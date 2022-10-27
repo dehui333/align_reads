@@ -211,11 +211,24 @@ static PyObject *cleanup_cpp(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+static PyObject *has_next_cpp(PyObject *self, PyObject *args)
+{
+    if (gen->has_next())
+    {
+        Py_RETURN_TRUE;
+    }
+    else
+    {
+        Py_RETURN_FALSE;
+    }
+}
+
 static PyMethodDef align_reads_gen_methods[] = {
     {"generate_features", generate_features_cpp, METH_VARARGS, "Generate features for reads correction."},
     {"initialize", initialize_cpp, METH_VARARGS, "Initialize generator."},
     {"cleanup", cleanup_cpp, METH_VARARGS, "Clean up resources."},
     {"print_window", print_window_cpp, METH_VARARGS, "debug printting."},
+    {"has_next", has_next_cpp, METH_VARARGS, "check if there's another target read."},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef align_reads_gen_definition = {

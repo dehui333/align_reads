@@ -42,12 +42,18 @@ namespace align_reads
         indexed_sequences.index_reads(truth_path);
     }
 
+    bool Generator::has_next()
+    {
+        return current_target < inputs.get_group(READS_GROUP).size();
+    }
+
     std::vector<std::vector<PyObject *>> Generator::produce_data()
     {
         std::uint32_t left_clip = 0;
         std::uint32_t right_clip = 0;
         std::vector<std::vector<PyObject *>> output;
         auto &target = inputs.get_id_in_group(READS_GROUP, current_target++);
+        //auto &target = inputs.get_id_in_group(READS_GROUP, 5587);
         std::string target_string = target->InflateData();
         AlignCounter align_counter = get_align_counter(target, target_string);
         std::uint32_t alignment_length = align_counter.alignment_length;

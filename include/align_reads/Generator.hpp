@@ -127,7 +127,7 @@ namespace align_reads
                     last_accepted_id = r.rhs_id;
                 }
             }
-            auto sort_by_iden = [] (const clipped_alignment<EdlibAlignResult>& lhs, const clipped_alignment<EdlibAlignResult>& rhs)
+            auto sort_by_iden = [](const clipped_alignment<EdlibAlignResult> &lhs, const clipped_alignment<EdlibAlignResult> &rhs)
             {
                 return lhs.identity_score > rhs.identity_score;
             };
@@ -141,7 +141,7 @@ namespace align_reads
                 prepare_for_print(target_string, filtered);
             }
 
-            //qual_check(filtered);
+            // qual_check(filtered);
             return {target_string, filtered};
         }
 
@@ -155,7 +155,6 @@ namespace align_reads
             std::string truth_string = indexed_sequences.get_sequence(seq_name);
             auto align_segment = get_alignment_segment(truth_string, 0, truth_string.size(),
                                                        target_string, 0, target_string.size(), EDLIB_MODE_GLOBAL, EDLIB_TASK_PATH);
-
             // find the length on the sides without truth alignment
             left_clip = align_segment.start_on_target;
             right_clip = target_string.size() - align_segment.end_on_target - 1;
@@ -207,11 +206,13 @@ namespace align_reads
                 target_idx++;
                 ins_idx = 0;
             }
-
-            for (; col_idx < window_length;)
+            if (matrix_idx < num_matrices)
             {
-                value_ptr = (uint8_t *)PyArray_GETPTR2(output[matrix_idx], 0, col_idx++);
-                *value_ptr = 5; // pad
+                for (; col_idx < window_length;)
+                {
+                    value_ptr = (uint8_t *)PyArray_GETPTR2(output[matrix_idx], 0, col_idx++);
+                    *value_ptr = 5; // pad
+                }
             }
 
             return output;

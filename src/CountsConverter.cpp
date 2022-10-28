@@ -1,4 +1,5 @@
 #include <iostream>
+#include <mutex>
 
 #include "align_reads/CountsConverter.hpp"
 
@@ -8,6 +9,7 @@
 namespace align_reads
 {
 
+    extern std::mutex mtx;
     inline void fill_in_column(std::uint16_t column_idx, std::uint16_t num_rows, PyObject *matrix, std::vector<std::uint16_t> &counter)
     {
         uint16_t *value_ptr;
@@ -74,7 +76,9 @@ namespace align_reads
             {
                 if (col_idx == 0)
                 {
+                    mtx.lock();
                     matrices.push_back(PyArray_SimpleNew(2, dims, NPY_UINT16));
+                    mtx.unlock();
                 }
                 fill_in_column(col_idx++, NUM_COUNTS, matrices[matrix_idx], counter);
                 if (col_idx == window_length)
@@ -108,7 +112,9 @@ namespace align_reads
             {
                 if (col_idx == 0)
                 {
+                    mtx.lock();
                     matrices.push_back(PyArray_SimpleNew(2, dims, NPY_FLOAT32));
+                    mtx.unlock();
                 }
                 fill_in_column_stats(col_idx++, NUM_STATS, matrices[matrix_idx], stat);
                 if (col_idx == window_length)

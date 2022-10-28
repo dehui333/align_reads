@@ -7,14 +7,17 @@
 #include "align_reads/Utilities.hpp"
 
 #include <iostream>
+
+
 namespace align_reads
 {
-
+    std::mutex mtx;
     Generator::Generator(std::vector<std::string> &reads0, std::vector<std::string> &reads1,
                          std::vector<std::string> &haplotype0, std::vector<std::string> &haplotype1,
                          std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length)
         : has_truth(true), pool(pool), inputs(3), overlapper(3, pool), window_length(window_length)
     {
+        current_target = 0;
         inputs.append_to_group(READS_GROUP, reads0, pool);
         start_of_reads1 = inputs.get_group(0).size();
         inputs.append_to_group(READS_GROUP, reads1, pool);
@@ -31,6 +34,7 @@ namespace align_reads
     Generator::Generator(std::vector<std::string> &reads, std::shared_ptr<thread_pool::ThreadPool> pool, std::uint16_t window_length, bool debug_printing)
         : has_truth(false), pool(pool), inputs(1), overlapper(1, pool), window_length(window_length), debug_printing(debug_printing) 
     {
+        current_target = 0;
         inputs.append_to_group(READS_GROUP, reads, pool);
         inputs.index_group(READS_GROUP);
         overlapper.index_sequences(inputs.get_group(READS_GROUP), READS_GROUP);
@@ -52,8 +56,8 @@ namespace align_reads
         std::uint32_t left_clip = 0;
         std::uint32_t right_clip = 0;
         std::vector<std::vector<PyObject *>> output;
-        auto &target = inputs.get_id_in_group(READS_GROUP, current_target++);
-        //auto &target = inputs.get_id_in_group(READS_GROUP, 5587);
+        //auto &target = inputs.get_id_in_group(READS_GROUP, current_target++);
+        auto &target = inputs.get_id_in_group(READS_GROUP, 28);
         std::string target_string = target->InflateData();
         AlignCounter align_counter = get_align_counter(target, target_string);
         std::uint32_t alignment_length = align_counter.alignment_length;

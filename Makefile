@@ -21,3 +21,8 @@ build/Makefile: bioparser/CMakeLists.txt CMakeLists.txt
 rebuild:  
 	cmake --build build/
 	. align_reads_venv/bin/activate; python3 setup.py build_ext -f; python3 setup.py install
+
+install:  
+	cmake --build build/
+	python setup.py build_ext -f; python setup.py install
+

@@ -2,6 +2,8 @@
 #define ALIGN_READS_GENERATOR_HPP_
 
 #include <iostream>
+#include <atomic>
+#include <mutex>
 
 #include "align_reads/Aligner.hpp"
 #include "align_reads/AlignCounter.hpp"
@@ -40,7 +42,7 @@
 
 namespace align_reads
 {
-
+    extern std::mutex mtx;
     class Generator
     {
     public:
@@ -68,7 +70,7 @@ namespace align_reads
     private:
         bool has_truth = false;
         std::uint32_t start_of_reads1 = 0; // id from which second set of reads start from
-        std::uint32_t current_target = 0;  // may need atomic if parallelize? - numpy array creation can't be
+        std::atomic<std::uint32_t> current_target;  // may need atomic if parallelize? - numpy array creation can't be
 
         std::shared_ptr<thread_pool::ThreadPool> pool; // pool of workers
         Inputs inputs;                                 // Stores input sequences
@@ -168,10 +170,12 @@ namespace align_reads
             dims[0] = 1;
             dims[1] = window_length;
             output.reserve(num_matrices);
+            mtx.lock();
             for (std::uint32_t i = 0; i < num_matrices; i++)
             {
                 output.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
             }
+            mtx.unlock();
 
             // fill up matrices
             std::uint32_t matrix_idx = 0;

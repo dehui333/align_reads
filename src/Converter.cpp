@@ -2,6 +2,7 @@
 #include <stdlib.h> // srand, rand
 #include <time.h>   // time
 #include <iostream>
+#include <mutex>
 
 #include "align_reads/Converter.hpp"
 #include "align_reads/Utilities.hpp"
@@ -15,7 +16,7 @@
 #define MAX_UINT32 static_cast<std::uint32_t>(-1)
 namespace align_reads
 {
-
+    extern std::mutex mtx;
     // another copy in AlignCounter.hpp
     // should do sth about this
     std::uint8_t ENCODER[] = {
@@ -298,11 +299,13 @@ namespace align_reads
         std::vector<PyObject *> Xs;
         // ---> I think PyArray_SimpleNew cannot have multiple called in parallel!!!
         Xs.reserve(chosen.size());
+        mtx.lock();
         for (auto &list : chosen)
         {
             if (!list.empty())
                 Xs.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
         }
+        mtx.unlock();
 
         auto produce_matrix = [&](std::vector<std::uint32_t> &alignment_indices, std::uint32_t window_index, std::uint32_t matrix_idx)
         {
@@ -368,11 +371,13 @@ namespace align_reads
         std::vector<PyObject *> Ys;
         // ---> I think PyArray_SimpleNew cannot have multiple called in parallel!!!
         Ys.reserve(chosen.size());
+        mtx.lock();
         for (auto &list : chosen)
         {
             if (!list.empty())
                 Ys.push_back(PyArray_SimpleNew(2, dims, NPY_UINT8));
         }
+        mtx.unlock();
 
         auto produce_matrix = [&](std::vector<std::uint32_t> &alignment_indices, std::uint32_t window_index, std::uint32_t matrix_idx, Info* info_ptr)
         {

@@ -1,5 +1,8 @@
+#py_ext: venv libalign_reads.a align_reads_gen.cpp 
+#	. align_reads_venv/bin/activate; python3 setup.py build_ext -f; python3 setup.py install
 py_ext: venv libalign_reads.a align_reads_gen.cpp 
-	. align_reads_venv/bin/activate; python3 setup.py build_ext -f; python3 setup.py install
+	python3 setup.py build_ext -f; python3 setup.py install
+
 
 venv: align_reads_venv/bin/activate
 
@@ -18,11 +21,15 @@ build/libalign_reads.a: build/Makefile tests/Inputs_tests.cpp
 build/Makefile: bioparser/CMakeLists.txt CMakeLists.txt
 	. align_reads_venv/bin/activate; cmake -S . -B build/
 
+#rebuild:  
+#	cmake --build build/
+#	. align_reads_venv/bin/activate; python3 setup.py build_ext -f; python3 setup.py install
 rebuild:  
 	cmake --build build/
-	. align_reads_venv/bin/activate; python3 setup.py build_ext -f; python3 setup.py install
+	python3 setup.py build_ext -f; python3 setup.py install
 
-install:  
-	cmake --build build/
-	python setup.py build_ext -f; python setup.py install
+
+#install:  
+#	cmake --build build/
+#	python setup.py build_ext -f; python setup.py install
 
